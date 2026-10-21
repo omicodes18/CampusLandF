@@ -1,0 +1,34 @@
+# Python byte-code and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.cache/
+
+# Environments and secrets
+.env
+.venv/
+venv/
+ENV/
+env/
+*.env.*
+!*.env.example
+
+# Database files & Flask instance folder
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploaded user files (keep directory via .gitkeep)
+uploads/*
+!uploads/.gitkeep
+
+# macOS metadata
+.DS_Store
+
+# IDE configs
+.vscode/
+.idea/
