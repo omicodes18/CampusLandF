@@ -1,8 +1,30 @@
-# College Lost & Found Management Website — Backend
+# College Lost & Found Management Website
 
-A modular, lightweight backend service for a college campus **Lost & Found Management System**, built using **Python Flask**, **SQLite**, and **pytest**.
+A modern, full-stack campus **Lost & Found Management System**, built using **Python Flask**, **SQLite**, **Tailwind CSS (Stitch Blush Collegiate UI/UX)**, and **pytest**.
 
-This project is structured for academic clarity, ease of explanation during technical vivas/presentations, and adherence to foundational software engineering principles.
+This project features both a responsive Web User Interface and RESTful API endpoints structured for academic clarity, ease of explanation during technical vivas/presentations, and adherence to software engineering standards.
+
+---
+
+## 🎨 Frontend UI/UX Design System (Blush Collegiate)
+
+The user interface follows the **Blush Collegiate** design language designed via Stitch AI:
+- **Color Palette**:
+  - Primary: `#974259` (Deep Berry / Rose)
+  - Secondary Container: `#f8dce2` (Blush Accent)
+  - Tertiary / Success: `#35675a` (Sage / Verified Emerald)
+  - Background: `#fbf8ff` (Warm Ivory Canvas)
+  - Surfaces: `#ffffff` & `#f5f2f9`
+- **Typography**: Plus Jakarta Sans (`headline-xl`, `headline-lg`, `body-md`, `label-sm`)
+- **Icons**: Google Material Symbols Outlined
+- **Framework**: Tailwind CSS (via CDN with custom theme extensions)
+
+### Web Pages:
+- **`GET /` (Homepage)**: Hero banner, campus registry live stats, quick action center, recently reported live feed, 4-step safe handover protocol, campus custody desks.
+- **`GET /browse` or `GET /board` (Campus Board)**: Real-time search, segmented tabs (`All`, `Lost`, `Found`), category filters, sorting, dynamic item cards, full details modal, and interactive "Claim Item" workflow.
+- **`GET /report` (Report Item)**: Lost/Found toggle, category dropdown, campus location & date picker, description character counter, drag-and-drop photo upload with instant preview.
+- **`GET /claims` (My Claims)**: Track submitted ownership claims, view verification notes, and see status badges (`Pending`, `Approved`, `Rejected`).
+- **`GET /admin` (Admin Control Panel)**: Real-time system stats, pending ownership claims review (one-click Approve / Reject), and item report status management (`open`, `claimed`, `returned`, `resolved`).
 
 ---
 
@@ -18,19 +40,28 @@ college-lost-and-found/
 ├── app.py                # Application factory (create_app), error handlers, entry point
 ├── database.py           # SQLite connection lifecycle (get_db, close_db, init_db)
 ├── models.py             # DDL schemas, domain constants, and serialization helpers
-├── routes/               # Modular Flask Blueprints (API endpoints)
+├── routes/               # Modular Flask Blueprints (API & Web endpoints)
 │   ├── __init__.py       # Blueprint registry
 │   ├── admin_routes.py   # Admin management endpoints (/api/admin/users, /api/admin/stats, review)
 │   ├── auth_routes.py    # Authentication (register, login, logout, me, notifications) & RBAC
 │   ├── claim_routes.py   # Ownership claims endpoints (/api/items/<id>/claims, /api/claims/my)
 │   ├── health.py         # Health check endpoint (/api/health) & DB ping
-│   └── item_routes.py    # Lost & found item reporting, listing, filters, and image serving
+│   ├── item_routes.py    # Lost & found item reporting, listing, filters, and image serving
+│   └── web_routes.py     # Frontend web routes (/, /browse, /report, /claims, /admin)
 ├── services/             # Business logic layer
 │   ├── __init__.py
 │   ├── auth_service.py   # Password hashing (Werkzeug), user creation, authentication
 │   ├── claim_service.py  # Claim submission, admin review, and item lifecycle transitions
-│   └── item_service.py   # Validation, search, and image processing for items
-├── tests/                # Automated pytest suite
+│   ├── item_service.py   # Validation, search, and image processing for items
+│   └── seed_service.py   # Auto-seeds realistic demo items matching the Stitch UI design
+├── templates/            # Jinja2 HTML Templates (Blush Collegiate UI/UX)
+│   ├── base.html         # Base layout with navbar, auth modal, notifications & footer
+│   ├── index.html        # Homepage with hero, metrics, live feed, custody desks
+│   ├── board.html        # Interactive Lost & Found catalog board with search & claim modal
+│   ├── report.html       # Report Lost/Found form with drag-and-drop image upload
+│   ├── claims.html       # Student claims verification & tracking page
+│   └── admin.html        # Administrator moderation & claim approval panel
+├── tests/                # Automated pytest suite (61 test cases)
 │   ├── __init__.py
 │   ├── conftest.py       # Isolated test client and temporary DB fixtures
 │   ├── test_audit.py     # Edge cases, date validation, 404s, case-insensitivity, stale sessions
@@ -40,7 +71,8 @@ college-lost-and-found/
 │   ├── test_errors.py    # Custom JSON error handler tests (404, 405)
 │   ├── test_health.py    # Health check endpoint tests
 │   ├── test_items.py     # Reporting, search, filters, image uploads, edit/delete auth
-│   └── test_services.py  # Password hashing, validation, & item tests
+│   ├── test_services.py  # Password hashing, validation, & item tests
+│   └── test_web.py       # Frontend web page rendering and template verification tests
 └── uploads/              # Storage directory for uploaded item photos (.gitkeep)
 ```
 
@@ -249,11 +281,19 @@ python3 app.py
 ```
 *(Default URL: `http://127.0.0.1:5001`. Port 5001 avoids macOS AirPlay receiver conflicts on port 5000).*
 
+Open `http://127.0.0.1:5001/` in your web browser to explore the full Stitch UI/UX experience!
+
+### 🔑 Pre-Seeded Demo Accounts:
+Upon first launch, realistic campus sample items and two demo accounts are automatically prepared:
+- **Student User**: `student@campus.edu` | Password: `StudentPass123`
+- **Administrator**: `admin@campus.edu` | Password: `AdminPass123`
+*(You can also use the "Quick Demo" buttons inside the Sign In modal to log in with 1 click).*
+
 ---
 
 ## 🧪 Running Automated Tests
 
-Run the full pytest suite:
+Run the full 61-test pytest suite:
 ```bash
 pytest -v
 ```
@@ -269,3 +309,4 @@ Tests cover:
   - Student access to admin routes (403 Forbidden)
   - Admin access to admin routes (200 OK)
 - Health check & custom JSON error handlers (404, 405)
+- Frontend Web Route rendering (`/`, `/browse`, `/report`, `/claims`, `/admin`)

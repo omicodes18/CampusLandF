@@ -1,0 +1,709 @@
+{% extends "base.html" %}
+
+{% block title %}Campus Board · Lost & Found Registry{% endblock %}
+
+{% block content %}
+<div class="relative w-full overflow-hidden pb-16 pt-4">
+  <!-- Ambient background glow -->
+  <div class="absolute -top-16 -left-20 w-80 h-80 rounded-full bg-secondary-fixed/40 blur-3xl pointer-events-none -z-10"></div>
+  <div class="absolute top-24 right-0 w-96 h-96 rounded-full bg-primary-fixed/30 blur-3xl pointer-events-none -z-10"></div>
+
+  <div class="max-w-7xl mx-auto px-gutter-desktop relative z-10 flex flex-col gap-space-lg">
+    
+    <!-- Header Banner & Quick Metrics -->
+    <section class="flex flex-col md:flex-row md:items-end justify-between gap-space-md pb-2">
+      <div class="max-w-2xl">
+        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm mb-space-xs shadow-sm font-semibold">
+          <span>Live Campus Registry</span>
+        </div>
+        <h1 class="font-headline-xl text-headline-xl text-on-surface tracking-tight mb-space-xs flex items-center gap-2">
+          <span>The campus lost &amp; found board</span>
+        </h1>
+        <p class="font-body-lg text-body-lg text-on-surface-variant">
+          Showing verified items reported across campus. Filter by type, category, or location to find your belongings.
+        </p>
+      </div>
+
+      <!-- Quick Metrics Pills -->
+      <div class="flex items-center gap-2 bg-surface-container-low p-2 rounded-xl shadow-sm self-start md:self-auto border border-surface-container-high">
+        <div class="px-3.5 py-1.5 bg-surface-container-lowest rounded-lg text-center shadow-xs">
+          <span id="metricTotal" class="block font-headline-sm text-headline-sm text-primary font-bold">0</span>
+          <span class="block font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Total</span>
+        </div>
+        <div class="px-3.5 py-1.5 bg-surface-container-lowest rounded-lg text-center shadow-xs">
+          <span id="metricFound" class="block font-headline-sm text-headline-sm text-tertiary font-bold">0</span>
+          <span class="block font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Found</span>
+        </div>
+        <div class="px-3.5 py-1.5 bg-surface-container-lowest rounded-lg text-center shadow-xs">
+          <span id="metricLost" class="block font-headline-sm text-headline-sm text-on-primary-fixed-variant font-bold">0</span>
+          <span class="block font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Lost</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Search & Segmented Filter Bar -->
+    <div class="bg-surface-container-lowest p-space-md rounded-2xl shadow-sm flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-space-md border border-surface-container-high">
+      
+      <!-- Search Input -->
+      <div class="relative flex-1">
+        <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px] pointer-events-none">search</span>
+        <input id="searchInput" class="w-full h-11 pl-11 pr-10 rounded-xl bg-surface-container-low font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/70 focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container shadow-inner transition-all" placeholder="Search for headphones, keys, ID cards, hydro flask, textbooks..." type="text">
+        <button id="clearSearchBtn" onclick="clearSearch()" aria-label="Clear search" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 hover:text-on-surface" type="button">
+          <span class="material-symbols-outlined text-[18px]">cancel</span>
+        </button>
+      </div>
+
+      <!-- Segmented Tab Controls (All, Lost, Found) -->
+      <div class="flex items-center gap-1 bg-surface-container-low p-1 rounded-xl self-start lg:self-auto overflow-x-auto w-full lg:w-auto">
+        <button id="tabAll" onclick="setTypeFilter('all')" class="px-4 py-2 rounded-lg font-label-lg text-label-lg bg-primary text-on-primary shadow-sm whitespace-nowrap transition-all" type="button">
+          All Items
+        </button>
+        <button id="tabLost" onclick="setTypeFilter('lost')" class="px-4 py-2 rounded-lg font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-lowest/60 whitespace-nowrap transition-all" type="button">
+          Lost Items
+        </button>
+        <button id="tabFound" onclick="setTypeFilter('found')" class="px-4 py-2 rounded-lg font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-lowest/60 whitespace-nowrap transition-all" type="button">
+          Found Items
+        </button>
+      </div>
+
+      <!-- Sort Selection -->
+      <div class="relative min-w-[180px]">
+        <select id="sortSelect" onchange="applySorting()" class="w-full h-11 px-3.5 pr-8 rounded-xl bg-surface-container-low text-on-surface font-label-lg text-label-lg appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-container shadow-sm">
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
+          <option value="title">Title (A–Z)</option>
+        </select>
+        <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px] pointer-events-none">unfold_more</span>
+      </div>
+
+    </div>
+
+    <!-- Main Content Layout: Filter Sidebar & Catalog Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-start">
+      
+      <!-- Left Filter Sidebar -->
+      <aside class="lg:col-span-4 xl:col-span-3 flex flex-col gap-space-md">
+        <div class="bg-surface-container-lowest p-space-md rounded-2xl shadow-sm flex flex-col gap-space-md border border-surface-container-high">
+          
+          <!-- Sidebar Header -->
+          <div class="flex items-center justify-between pb-2 border-b border-surface-container-high">
+            <div class="flex items-center gap-1.5">
+              <span class="material-symbols-outlined text-primary text-[20px]">tune</span>
+              <h3 class="font-headline-sm text-headline-sm text-on-surface">Filters</h3>
+            </div>
+            <button onclick="resetAllFilters()" class="font-label-sm text-label-sm text-primary hover:text-on-primary-fixed-variant transition-colors underline decoration-primary/40 underline-offset-2" type="button">
+              Reset All
+            </button>
+          </div>
+
+          <!-- Categories Radio Group -->
+          <div class="flex flex-col gap-1.5 pt-1">
+            <span class="font-label-md text-label-md text-on-surface uppercase tracking-wider mb-1 font-semibold">Categories</span>
+            
+            <label class="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors">
+              <div class="flex items-center gap-2.5">
+                <input type="radio" name="categoryFilter" value="all" checked onchange="onCategoryChange('all')" class="w-4 h-4 text-primary accent-primary cursor-pointer">
+                <span class="font-body-md text-body-md text-on-surface font-semibold">All Categories</span>
+              </div>
+            </label>
+
+            <label class="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors">
+              <div class="flex items-center gap-2.5">
+                <input type="radio" name="categoryFilter" value="Electronics" onchange="onCategoryChange('Electronics')" class="w-4 h-4 text-primary accent-primary cursor-pointer">
+                <span class="font-body-md text-body-md text-on-surface">Electronics</span>
+              </div>
+            </label>
+
+            <label class="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors">
+              <div class="flex items-center gap-2.5">
+                <input type="radio" name="categoryFilter" value="Bags & Wallets" onchange="onCategoryChange('Bags & Wallets')" class="w-4 h-4 text-primary accent-primary cursor-pointer">
+                <span class="font-body-md text-body-md text-on-surface">Bags &amp; Wallets</span>
+              </div>
+            </label>
+
+            <label class="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors">
+              <div class="flex items-center gap-2.5">
+                <input type="radio" name="categoryFilter" value="ID Cards & Documents" onchange="onCategoryChange('ID Cards & Documents')" class="w-4 h-4 text-primary accent-primary cursor-pointer">
+                <span class="font-body-md text-body-md text-on-surface">ID Cards &amp; Docs</span>
+              </div>
+            </label>
+
+            <label class="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors">
+              <div class="flex items-center gap-2.5">
+                <input type="radio" name="categoryFilter" value="Keys" onchange="onCategoryChange('Keys')" class="w-4 h-4 text-primary accent-primary cursor-pointer">
+                <span class="font-body-md text-body-md text-on-surface">Keys &amp; Lanyards</span>
+              </div>
+            </label>
+
+            <label class="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors">
+              <div class="flex items-center gap-2.5">
+                <input type="radio" name="categoryFilter" value="Books & Stationery" onchange="onCategoryChange('Books & Stationery')" class="w-4 h-4 text-primary accent-primary cursor-pointer">
+                <span class="font-body-md text-body-md text-on-surface">Books &amp; Stationery</span>
+              </div>
+            </label>
+
+            <label class="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors">
+              <div class="flex items-center gap-2.5">
+                <input type="radio" name="categoryFilter" value="Clothing" onchange="onCategoryChange('Clothing')" class="w-4 h-4 text-primary accent-primary cursor-pointer">
+                <span class="font-body-md text-body-md text-on-surface">Clothing &amp; Accessories</span>
+              </div>
+            </label>
+
+            <label class="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors">
+              <div class="flex items-center gap-2.5">
+                <input type="radio" name="categoryFilter" value="Others" onchange="onCategoryChange('Others')" class="w-4 h-4 text-primary accent-primary cursor-pointer">
+                <span class="font-body-md text-body-md text-on-surface">Others</span>
+              </div>
+            </label>
+          </div>
+
+          <!-- Status Filter -->
+          <div class="flex flex-col gap-1.5 pt-2 border-t border-surface-container-high">
+            <span class="font-label-md text-label-md text-on-surface uppercase tracking-wider mb-1 font-semibold">Status</span>
+            <label class="flex items-center gap-2.5 py-1 px-2 rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors">
+              <input type="radio" name="statusFilter" value="all" checked onchange="onStatusChange('all')" class="w-4 h-4 text-primary accent-primary cursor-pointer">
+              <span class="font-body-md text-body-md text-on-surface">All Statuses</span>
+            </label>
+            <label class="flex items-center gap-2.5 py-1 px-2 rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors">
+              <input type="radio" name="statusFilter" value="open" onchange="onStatusChange('open')" class="w-4 h-4 text-primary accent-primary cursor-pointer">
+              <span class="font-body-md text-body-md text-on-surface">Open &amp; Available</span>
+            </label>
+            <label class="flex items-center gap-2.5 py-1 px-2 rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors">
+              <input type="radio" name="statusFilter" value="claimed" onchange="onStatusChange('claimed')" class="w-4 h-4 text-primary accent-primary cursor-pointer">
+              <span class="font-body-md text-body-md text-on-surface">Claimed / Pending</span>
+            </label>
+            <label class="flex items-center gap-2.5 py-1 px-2 rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors">
+              <input type="radio" name="statusFilter" value="resolved" onchange="onStatusChange('resolved')" class="w-4 h-4 text-primary accent-primary cursor-pointer">
+              <span class="font-body-md text-body-md text-on-surface">Resolved / Returned</span>
+            </label>
+          </div>
+
+        </div>
+
+        <!-- Can't find callout card -->
+        <div class="p-space-md rounded-2xl bg-secondary-fixed/50 text-on-secondary-fixed flex flex-col gap-2 shadow-sm border border-secondary-fixed">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-[20px] text-primary">search</span>
+            <h4 class="font-headline-sm text-headline-sm leading-snug">Can’t find your item?</h4>
+          </div>
+          <p class="font-body-sm text-body-sm text-on-secondary-fixed-variant leading-relaxed">
+            File a missing report with photos &amp; distinguishing markings. When someone logs a match, you'll be alerted immediately.
+          </p>
+          <a href="/report?type=lost" class="inline-flex items-center justify-center gap-1.5 mt-1 px-3 py-2 bg-primary text-on-primary font-label-md text-label-md rounded-lg shadow-sm hover:bg-on-primary-fixed-variant transition-colors">
+            <span>Report Missing Item</span>
+            <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+          </a>
+        </div>
+      </aside>
+
+      <!-- Right Main Results Area -->
+      <main class="lg:col-span-8 xl:col-span-9 flex flex-col gap-space-md">
+        
+        <!-- Active Filter Pills & Results Count -->
+        <div class="flex flex-wrap items-center justify-between gap-space-sm bg-surface-container-lowest px-space-md py-3 rounded-xl shadow-sm border border-surface-container-high">
+          <div class="flex flex-wrap items-center gap-2" id="activeFilterPills">
+            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">Filter:</span>
+            <span id="pillType" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm font-medium">
+              Type: All
+            </span>
+            <span id="pillCategory" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm">
+              Category: All
+            </span>
+            <span id="pillStatus" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-container text-on-surface font-label-sm text-label-sm">
+              Status: All
+            </span>
+          </div>
+
+          <div class="font-body-sm text-body-sm text-on-surface-variant" id="resultsCountLabel">
+            Showing <span class="font-semibold text-on-surface">0</span> items
+          </div>
+        </div>
+
+        <!-- 3x3 Cards Grid -->
+        <div id="boardItemsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-md">
+          <!-- Loaded dynamically via JavaScript -->
+        </div>
+
+      </main>
+
+    </div>
+  </div>
+</div>
+
+<!-- CLAIM MODAL DIALOG -->
+<div id="claimModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm transition-opacity">
+  <div class="bg-surface-container-lowest w-full max-w-lg rounded-2xl shadow-2xl p-6 sm:p-8 relative border border-surface-container-high">
+    
+    <button onclick="closeClaimModal()" class="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface p-1 rounded-full hover:bg-surface-container-low transition-colors">
+      <span class="material-symbols-outlined text-[20px]">close</span>
+    </button>
+
+    <div class="flex items-center gap-2 mb-3">
+      <div class="w-10 h-10 rounded-xl bg-tertiary-fixed flex items-center justify-center text-tertiary">
+        <span class="material-symbols-outlined text-[22px]">verified</span>
+      </div>
+      <div>
+        <h3 class="font-headline-sm text-headline-sm text-on-surface">Submit Ownership Claim</h3>
+        <p class="font-body-sm text-body-sm text-on-surface-variant">Central Campus Custody Verification</p>
+      </div>
+    </div>
+
+    <!-- Target Item Preview -->
+    <div class="p-3 rounded-xl bg-surface-container-low mb-4 flex items-center gap-3 border border-surface-container-high">
+      <div class="w-14 h-14 rounded-lg bg-surface-container overflow-hidden shrink-0">
+        <img id="claimItemThumb" class="w-full h-full object-cover" src="" alt="Item">
+      </div>
+      <div class="min-w-0">
+        <h4 id="claimItemTitle" class="font-label-lg text-label-lg text-on-surface truncate font-semibold">Item Title</h4>
+        <p id="claimItemLocation" class="font-body-sm text-body-sm text-on-surface-variant truncate">Location: Central Library</p>
+      </div>
+    </div>
+
+    <!-- Alert in claim modal -->
+    <div id="claimAlert" class="hidden mb-4 p-3 rounded-xl text-body-sm"></div>
+
+    <form id="claimForm" onsubmit="handleClaimSubmit(event)" class="space-y-4">
+      <input type="hidden" id="claimItemId">
+      
+      <div>
+        <label class="block font-label-md text-label-md text-on-surface mb-1" for="proofDetails">
+          Ownership Proof &amp; Secret Details <span class="text-primary">*</span>
+        </label>
+        <textarea id="proofDetails" required rows="4" maxlength="1000" class="w-full p-3 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-tertiary" placeholder="Provide distinguishing details known only to the owner: serial numbers, wallpaper on screen, specific stickers, hidden contents, or unique scratches."></textarea>
+        <p class="font-body-sm text-[12px] text-on-surface-variant mt-1 flex items-center gap-1">
+          <span class="material-symbols-outlined text-[14px] text-tertiary">lock</span>
+          Only campus administrators reviewing this claim can see your proof details.
+        </p>
+      </div>
+
+      <div class="flex items-center justify-end gap-3 pt-2">
+        <button type="button" onclick="closeClaimModal()" class="px-4 py-2.5 rounded-lg bg-surface-container-low text-on-surface font-label-md hover:bg-surface-container-high transition-colors">
+          Cancel
+        </button>
+        <button type="submit" id="claimSubmitBtn" class="px-5 py-2.5 rounded-lg bg-tertiary text-on-tertiary font-label-md shadow-md hover:bg-on-tertiary-fixed-variant transition-all active:scale-95 flex items-center gap-2">
+          <span class="material-symbols-outlined text-[18px]">verified</span>
+          <span>Submit Verification Claim</span>
+        </button>
+      </div>
+    </form>
+
+  </div>
+</div>
+
+<!-- ITEM DETAILS / FINDER CONTACT MODAL -->
+<div id="detailsModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm transition-opacity">
+  <div class="bg-surface-container-lowest w-full max-w-lg rounded-2xl shadow-2xl p-6 sm:p-8 relative border border-surface-container-high max-h-[90vh] overflow-y-auto">
+    
+    <button onclick="closeDetailsModal()" class="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface p-1 rounded-full hover:bg-surface-container-low transition-colors">
+      <span class="material-symbols-outlined text-[20px]">close</span>
+    </button>
+
+    <div class="mb-4">
+      <span id="detailBadge" class="inline-flex items-center px-2.5 py-0.5 rounded-full font-label-sm text-label-sm font-semibold mb-2"></span>
+      <h2 id="detailTitle" class="font-headline-md text-headline-md text-on-surface font-bold"></h2>
+      <p id="detailCategory" class="font-body-sm text-body-sm text-on-surface-variant"></p>
+    </div>
+
+    <div class="w-full h-56 rounded-xl overflow-hidden bg-surface-container-low mb-4 flex items-center justify-center">
+      <img id="detailImage" class="w-full h-full object-cover" src="" alt="Item">
+    </div>
+
+    <div class="space-y-3 font-body-md text-body-md text-on-surface mb-6">
+      <div class="p-3 rounded-xl bg-surface-container-low border border-surface-container-high space-y-1.5">
+        <p class="flex items-center gap-2 text-on-surface">
+          <span class="material-symbols-outlined text-primary text-[18px]">pin_drop</span>
+          <span class="font-semibold">Location:</span> <span id="detailLocation"></span>
+        </p>
+        <p class="flex items-center gap-2 text-on-surface">
+          <span class="material-symbols-outlined text-primary text-[18px]">calendar_today</span>
+          <span class="font-semibold">Date Reported:</span> <span id="detailDate"></span>
+        </p>
+        <p class="flex items-center gap-2 text-on-surface">
+          <span class="material-symbols-outlined text-primary text-[18px]">info</span>
+          <span class="font-semibold">Status:</span> <span id="detailStatus" class="capitalize"></span>
+        </p>
+      </div>
+
+      <div>
+        <h4 class="font-label-lg text-label-lg font-semibold text-on-surface mb-1">Description:</h4>
+        <p id="detailDesc" class="text-on-surface-variant leading-relaxed"></p>
+      </div>
+
+      <div id="contactBox" class="p-3 rounded-xl bg-secondary-fixed/30 border border-secondary-fixed space-y-1">
+        <h4 class="font-label-md text-label-md font-semibold text-on-surface">Contact Information:</h4>
+        <p id="detailEmail" class="font-body-sm text-body-sm text-on-surface-variant"></p>
+        <p id="detailPhone" class="font-body-sm text-body-sm text-on-surface-variant"></p>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-end gap-2 pt-2 border-t border-surface-container-high">
+      <button onclick="closeDetailsModal()" class="px-4 py-2 rounded-lg bg-surface-container-low text-on-surface font-label-md">Close</button>
+      <button id="detailClaimBtn" class="px-5 py-2 rounded-lg bg-tertiary text-on-tertiary font-label-md font-semibold">Claim This Item</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  let allItems = [];
+  let currentFilterType = 'all';
+  let currentCategory = 'all';
+  let currentStatus = 'all';
+  let searchQuery = '';
+
+  // Initialize board from query parameters if provided
+  document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('q')) {
+      searchQuery = urlParams.get('q');
+      document.getElementById('searchInput').value = searchQuery;
+      document.getElementById('clearSearchBtn').classList.remove('hidden');
+    }
+    if (urlParams.get('type')) {
+      currentFilterType = urlParams.get('type');
+    }
+    if (urlParams.get('category')) {
+      currentCategory = urlParams.get('category');
+      const radio = document.querySelector(`input[name="categoryFilter"][value="${currentCategory}"]`);
+      if (radio) radio.checked = true;
+    }
+
+    updateTypeButtons();
+    fetchItems();
+
+    // Search input listener
+    const searchInput = document.getElementById('searchInput');
+    searchInput.addEventListener('input', (e) => {
+      searchQuery = e.target.value.trim();
+      if (searchQuery) {
+        document.getElementById('clearSearchBtn').classList.remove('hidden');
+      } else {
+        document.getElementById('clearSearchBtn').classList.add('hidden');
+      }
+      filterAndRender();
+    });
+  });
+
+  async function fetchItems() {
+    const grid = document.getElementById('boardItemsGrid');
+    grid.innerHTML = `
+      <div class="col-span-full py-16 text-center text-on-surface-variant flex flex-col items-center">
+        <span class="material-symbols-outlined text-[36px] text-primary animate-spin mb-2">progress_activity</span>
+        <p class="font-body-md">Loading items from campus registry...</p>
+      </div>
+    `;
+
+    try {
+      const res = await fetch('/api/items');
+      if (res.ok) {
+        const data = await res.json();
+        allItems = data.items || [];
+        updateMetrics(allItems);
+        filterAndRender();
+      } else {
+        grid.innerHTML = '<p class="col-span-full text-center text-error py-12">Failed to load items.</p>';
+      }
+    } catch (e) {
+      grid.innerHTML = '<p class="col-span-full text-center text-error py-12">Connection error with server.</p>';
+    }
+  }
+
+  function updateMetrics(items) {
+    const total = items.length;
+    const found = items.filter(i => i.type === 'found').length;
+    const lost = items.filter(i => i.type === 'lost').length;
+
+    document.getElementById('metricTotal').textContent = total;
+    document.getElementById('metricFound').textContent = found;
+    document.getElementById('metricLost').textContent = lost;
+  }
+
+  function setTypeFilter(type) {
+    currentFilterType = type;
+    updateTypeButtons();
+    filterAndRender();
+  }
+
+  function updateTypeButtons() {
+    const btnAll = document.getElementById('tabAll');
+    const btnLost = document.getElementById('tabLost');
+    const btnFound = document.getElementById('tabFound');
+
+    const activeClasses = "bg-primary text-on-primary shadow-sm";
+    const inactiveClasses = "text-on-surface-variant hover:text-on-surface hover:bg-surface-container-lowest/60";
+
+    btnAll.className = `px-4 py-2 rounded-lg font-label-lg text-label-lg whitespace-nowrap transition-all ${currentFilterType === 'all' ? activeClasses : inactiveClasses}`;
+    btnLost.className = `px-4 py-2 rounded-lg font-label-lg text-label-lg whitespace-nowrap transition-all ${currentFilterType === 'lost' ? activeClasses : inactiveClasses}`;
+    btnFound.className = `px-4 py-2 rounded-lg font-label-lg text-label-lg whitespace-nowrap transition-all ${currentFilterType === 'found' ? activeClasses : inactiveClasses}`;
+
+    document.getElementById('pillType').textContent = `Type: ${currentFilterType.toUpperCase()}`;
+  }
+
+  function onCategoryChange(cat) {
+    currentCategory = cat;
+    document.getElementById('pillCategory').textContent = `Category: ${cat === 'all' ? 'All' : cat}`;
+    filterAndRender();
+  }
+
+  function onStatusChange(stat) {
+    currentStatus = stat;
+    document.getElementById('pillStatus').textContent = `Status: ${stat.toUpperCase()}`;
+    filterAndRender();
+  }
+
+  function clearSearch() {
+    document.getElementById('searchInput').value = '';
+    searchQuery = '';
+    document.getElementById('clearSearchBtn').classList.add('hidden');
+    filterAndRender();
+  }
+
+  function resetAllFilters() {
+    currentFilterType = 'all';
+    currentCategory = 'all';
+    currentStatus = 'all';
+    searchQuery = '';
+    document.getElementById('searchInput').value = '';
+    document.getElementById('clearSearchBtn').classList.add('hidden');
+    document.querySelector('input[name="categoryFilter"][value="all"]').checked = true;
+    document.querySelector('input[name="statusFilter"][value="all"]').checked = true;
+    updateTypeButtons();
+    document.getElementById('pillCategory').textContent = 'Category: All';
+    document.getElementById('pillStatus').textContent = 'Status: All';
+    filterAndRender();
+  }
+
+  function filterAndRender() {
+    let filtered = allItems.filter(item => {
+      // Type filter
+      if (currentFilterType !== 'all' && item.type !== currentFilterType) return false;
+      // Category filter
+      if (currentCategory !== 'all' && item.category !== currentCategory) return false;
+      // Status filter
+      if (currentStatus !== 'all' && item.status !== currentStatus) return false;
+      // Search query
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matchesTitle = item.title && item.title.toLowerCase().includes(q);
+        const matchesDesc = item.description && item.description.toLowerCase().includes(q);
+        const matchesLoc = item.location && item.location.toLowerCase().includes(q);
+        const matchesCat = item.category && item.category.toLowerCase().includes(q);
+        if (!matchesTitle && !matchesDesc && !matchesLoc && !matchesCat) return false;
+      }
+      return true;
+    });
+
+    // Sort
+    const sortVal = document.getElementById('sortSelect').value;
+    if (sortVal === 'newest') {
+      filtered.sort((a, b) => b.id - a.id);
+    } else if (sortVal === 'oldest') {
+      filtered.sort((a, b) => a.id - b.id);
+    } else if (sortVal === 'title') {
+      filtered.sort((a, b) => a.title.localeCompare(b.title));
+    }
+
+    renderCards(filtered);
+  }
+
+  function applySorting() {
+    filterAndRender();
+  }
+
+  function renderCards(items) {
+    const grid = document.getElementById('boardItemsGrid');
+    const countLabel = document.getElementById('resultsCountLabel');
+    countLabel.innerHTML = `Showing <span class="font-semibold text-on-surface">${items.length}</span> items`;
+
+    if (items.length === 0) {
+      grid.innerHTML = `
+        <div class="col-span-full py-16 text-center rounded-2xl bg-surface-container-lowest border border-dashed border-surface-container-high p-8">
+          <span class="material-symbols-outlined text-[44px] text-on-surface-variant/60 mb-2">search_off</span>
+          <h3 class="font-headline-sm text-headline-sm text-on-surface">No matching items found</h3>
+          <p class="font-body-md text-body-md text-on-surface-variant max-w-sm mx-auto mt-1 mb-4">Try clearing filters or checking back later as new reports are published daily.</p>
+          <button onclick="resetAllFilters()" class="px-4 py-2 rounded-lg bg-secondary-container text-primary font-label-md">Reset Filters</button>
+        </div>
+      `;
+      return;
+    }
+
+    grid.innerHTML = items.map(item => {
+      const isFound = item.type === 'found';
+      const badgeClass = isFound ? 'bg-tertiary-fixed text-on-tertiary-fixed' : 'bg-primary-fixed text-on-primary-fixed-variant';
+      const badgeText = isFound ? 'FOUND' : 'LOST';
+
+      const imageSrc = item.image_filename 
+        ? `/uploads/${encodeURIComponent(item.image_filename)}`
+        : 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80';
+
+      return `
+        <article class="bg-surface-container-lowest rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 flex flex-col group border border-surface-container-high">
+          <div class="relative h-44 w-full bg-surface-container-low overflow-hidden">
+            <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" src="${imageSrc}" alt="${escapeHtml(item.title)}">
+            <span class="absolute top-3 left-3 inline-flex items-center gap-1 px-2.5 py-1 rounded-full ${badgeClass} font-label-sm text-label-sm shadow-sm backdrop-blur-md font-bold tracking-wider">
+              ${badgeText}
+            </span>
+            <div class="absolute bottom-2.5 left-2.5 px-2.5 py-0.5 rounded-lg bg-surface-container-lowest/90 backdrop-blur-sm text-label-sm font-label-sm text-on-surface shadow-xs">
+              ${escapeHtml(item.category)}
+            </div>
+          </div>
+
+          <div class="p-space-md flex-1 flex flex-col justify-between gap-3">
+            <div>
+              <div class="flex items-center justify-between text-on-surface-variant font-body-sm text-body-sm mb-1">
+                <span class="flex items-center gap-1 truncate max-w-[70%]">
+                  <span class="material-symbols-outlined text-[15px] ${isFound ? 'text-tertiary' : 'text-primary'}">location_on</span>
+                  <span class="truncate">${escapeHtml(item.location)}</span>
+                </span>
+                <span class="text-[11px] font-medium px-2 py-0.5 rounded-full capitalize ${item.status === 'open' ? 'bg-secondary-fixed text-primary' : 'bg-surface-container text-on-surface-variant'}">
+                  ${escapeHtml(item.status)}
+                </span>
+              </div>
+
+              <h3 class="font-headline-sm text-headline-sm text-on-surface group-hover:text-primary transition-colors truncate">
+                ${escapeHtml(item.title)}
+              </h3>
+              <p class="font-body-sm text-body-sm text-on-surface-variant mt-1 line-clamp-2 leading-relaxed">
+                ${escapeHtml(item.description)}
+              </p>
+            </div>
+
+            <div class="pt-2 flex items-center justify-between border-t border-surface-container-high/60">
+              <button onclick="viewItemDetails(${item.id})" class="text-xs font-semibold text-primary hover:underline">
+                View Full Details
+              </button>
+
+              ${isFound ? `
+                <button onclick="openClaimModal(${item.id})" class="px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface hover:bg-tertiary hover:text-on-tertiary font-label-md text-label-md transition-colors flex items-center gap-1 font-semibold">
+                  <span>Claim Item</span>
+                  <span class="material-symbols-outlined text-[16px]">verified</span>
+                </button>
+              ` : `
+                <a href="/report?type=found&ref=${item.id}" class="px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface hover:bg-primary hover:text-on-primary font-label-md text-label-md transition-colors flex items-center gap-1 font-semibold">
+                  <span>I Found This</span>
+                  <span class="material-symbols-outlined text-[16px]">check_circle</span>
+                </a>
+              `}
+            </div>
+          </div>
+        </article>
+      `;
+    }).join('');
+  }
+
+  // Claim Modal Logic
+  function openClaimModal(itemId) {
+    if (!currentUser) {
+      showToast('Please sign in or create an account to file a claim.', 'info');
+      openAuthModal('login');
+      return;
+    }
+
+    const item = allItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    document.getElementById('claimItemId').value = item.id;
+    document.getElementById('claimItemTitle').textContent = item.title;
+    document.getElementById('claimItemLocation').textContent = `Location: ${item.location}`;
+    document.getElementById('claimItemThumb').src = item.image_filename 
+      ? `/uploads/${encodeURIComponent(item.image_filename)}`
+      : 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80';
+
+    document.getElementById('proofDetails').value = '';
+    document.getElementById('claimAlert').classList.add('hidden');
+    document.getElementById('claimModal').classList.remove('hidden');
+  }
+
+  function closeClaimModal() {
+    document.getElementById('claimModal').classList.add('hidden');
+  }
+
+  async function handleClaimSubmit(e) {
+    e.preventDefault();
+    const itemId = document.getElementById('claimItemId').value;
+    const proof_details = document.getElementById('proofDetails').value.trim();
+    const alertBox = document.getElementById('claimAlert');
+    const submitBtn = document.getElementById('claimSubmitBtn');
+
+    if (!proof_details) {
+      alertBox.className = "mb-4 p-3 rounded-xl text-body-sm bg-error-container text-on-error-container";
+      alertBox.textContent = 'Please provide details proving your ownership.';
+      alertBox.classList.remove('hidden');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span><span>Submitting...</span>';
+
+    try {
+      const res = await fetch(`/api/items/${itemId}/claims`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proof_details })
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        showToast('Claim submitted successfully! Administration will review your proof.');
+        closeClaimModal();
+        fetchItems(); // Refresh items state
+      } else {
+        alertBox.className = "mb-4 p-3 rounded-xl text-body-sm bg-error-container text-on-error-container";
+        alertBox.textContent = data.error?.message || 'Could not submit claim.';
+        alertBox.classList.remove('hidden');
+      }
+    } catch (err) {
+      alertBox.className = "mb-4 p-3 rounded-xl text-body-sm bg-error-container text-on-error-container";
+      alertBox.textContent = 'Server connection error.';
+      alertBox.classList.remove('hidden');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">verified</span><span>Submit Verification Claim</span>';
+    }
+  }
+
+  // Full Details Modal Logic
+  function viewItemDetails(itemId) {
+    const item = allItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    const isFound = item.type === 'found';
+    const badge = document.getElementById('detailBadge');
+    badge.className = `inline-flex items-center px-2.5 py-0.5 rounded-full font-label-sm text-label-sm font-semibold mb-2 ${isFound ? 'bg-tertiary-fixed text-on-tertiary-fixed' : 'bg-primary-fixed text-on-primary-fixed-variant'}`;
+    badge.textContent = isFound ? 'FOUND ITEM' : 'LOST ITEM';
+
+    document.getElementById('detailTitle').textContent = item.title;
+    document.getElementById('detailCategory').textContent = `Category: ${item.category}`;
+    document.getElementById('detailLocation').textContent = item.location;
+    document.getElementById('detailDate').textContent = item.date_event;
+    document.getElementById('detailStatus').textContent = item.status;
+    document.getElementById('detailDesc').textContent = item.description;
+
+    document.getElementById('detailImage').src = item.image_filename 
+      ? `/uploads/${encodeURIComponent(item.image_filename)}`
+      : 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80';
+
+    const emailP = document.getElementById('detailEmail');
+    const phoneP = document.getElementById('detailPhone');
+    emailP.textContent = item.contact_email ? `Email: ${item.contact_email}` : 'Email: Not specified';
+    phoneP.textContent = item.contact_phone ? `Phone: ${item.contact_phone}` : 'Phone: Not specified';
+
+    const claimBtn = document.getElementById('detailClaimBtn');
+    if (isFound) {
+      claimBtn.classList.remove('hidden');
+      claimBtn.onclick = () => {
+        closeDetailsModal();
+        openClaimModal(item.id);
+      };
+    } else {
+      claimBtn.classList.add('hidden');
+    }
+
+    document.getElementById('detailsModal').classList.remove('hidden');
+  }
+
+  function closeDetailsModal() {
+    document.getElementById('detailsModal').classList.add('hidden');
+  }
+</script>
+{% endblock %}

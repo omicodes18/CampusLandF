@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}My Claims · Campus Lost & Found{% endblock %}
+
+{% block content %}
+<div class="relative w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+  <!-- Delicate background glow -->
+  <div class="absolute -top-12 -left-16 w-64 h-64 bg-secondary-fixed/30 rounded-full blur-3xl pointer-events-none -z-10"></div>
+  <div class="absolute top-1/3 -right-20 w-80 h-80 bg-primary-fixed/20 rounded-full blur-3xl pointer-events-none -z-10"></div>
+
+  <!-- Header Section -->
+  <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+    <div>
+      <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm uppercase tracking-wider mb-2 font-semibold shadow-xs">
+        <span>Student Verification Hub</span>
+      </div>
+      <h1 class="font-headline-xl text-headline-xl text-on-surface tracking-tight">
+        My Ownership Claims
+      </h1>
+      <p class="font-body-lg text-body-lg text-on-surface-variant mt-1">
+        Track status and administrator reviews for all items you have claimed.
+      </p>
+    </div>
+    <a href="/browse" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-surface-container-low text-on-surface hover:bg-surface-container-high transition-colors font-label-md">
+      <span class="material-symbols-outlined text-[18px]">search</span>
+      <span>Browse More Items</span>
+    </a>
+  </div>
+
+  <!-- Not Logged In View -->
+  <div id="claimsLoggedOutBox" class="hidden rounded-2xl bg-surface-container-lowest p-8 text-center border border-surface-container-high shadow-sm">
+    <span class="material-symbols-outlined text-[44px] text-primary mb-3">lock</span>
+    <h3 class="font-headline-sm text-headline-sm text-on-surface mb-2">Authentication Required</h3>
+    <p class="font-body-md text-body-md text-on-surface-variant max-w-md mx-auto mb-6">
+      Please sign in with your student or faculty account to view and manage your filed ownership claims.
+    </p>
+    <button onclick="openAuthModal('login')" class="px-6 py-3 rounded-lg bg-primary text-on-primary font-label-lg shadow-md hover:bg-primary-container transition-all">
+      Sign In to Campus Registry
+    </button>
+  </div>
+
+  <!-- Claims List Container -->
+  <div id="claimsContainer" class="space-y-4">
+    <div class="py-16 text-center text-on-surface-variant flex flex-col items-center">
+      <span class="material-symbols-outlined text-[36px] text-primary animate-spin mb-2">progress_activity</span>
+      <p class="font-body-md">Retrieving your ownership claims...</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  async function loadMyClaims() {
+    const container = document.getElementById('claimsContainer');
+    const loggedOutBox = document.getElementById('claimsLoggedOutBox');
+
+    // Wait briefly for checkAuthState if not ready
+    if (!currentUser) {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          currentUser = data.user;
+        }
+      } catch (e) {}
+    }
+
+    if (!currentUser) {
+      container.classList.add('hidden');
+      loggedOutBox.classList.remove('hidden');
+      return;
+    }
+
+    loggedOutBox.classList.add('hidden');
+    container.classList.remove('hidden');
+
+    try {
+      const res = await fetch('/api/claims/my');
+      if (res.ok) {
+        const data = await res.json();
+        const claims = data.claims || [];
+
+        if (claims.length === 0) {
+          container.innerHTML = `
+            <div class="rounded-2xl bg-surface-container-lowest p-12 text-center border border-surface-container-high shadow-sm">
+              <span class="material-symbols-outlined text-[48px] text-on-surface-variant/50 mb-3">inventory_2</span>
+              <h3 class="font-headline-sm text-headline-sm text-on-surface mb-1">No Active Claims</h3>
+              <p class="font-body-md text-body-md text-on-surface-variant max-w-sm mx-auto mb-6">
+                You haven't filed any ownership claims yet. If you spot one of your items on the board, submit a claim with your proof!
+              </p>
+              <a href="/browse" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-on-primary font-label-md shadow-sm">
+                <span>Browse Found Items</span>
+              </a>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = claims.map(c => renderClaimCard(c)).join('');
+      } else {
+        container.innerHTML = '<p class="text-center text-error py-8">Failed to retrieve claims from server.</p>';
+      }
+    } catch (e) {
+      container.innerHTML = '<p class="text-center text-error py-8">Server connection error.</p>';
+    }
+  }
+
+  function renderClaimCard(claim) {
+    let statusBadge = '';
+    let instructions = '';
+
+    if (claim.status === 'approved') {
+      statusBadge = '<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm font-bold uppercase"><span class="material-symbols-outlined text-[14px]">check_circle</span>Approved</span>';
+      instructions = `
+        <div class="mt-3 p-3 rounded-xl bg-tertiary-fixed/30 border border-tertiary-container flex items-start gap-2.5 text-on-surface">
+          <span class="material-symbols-outlined text-tertiary text-[20px] shrink-0 mt-0.5">verified_user</span>
+          <div class="text-body-sm leading-relaxed">
+            <strong class="font-semibold text-tertiary">Claim Verified!</strong> Bring your student ID to Central Library Help Desk Room 204 during operating hours (Mon-Fri 8am-8pm) for physical custody pickup.
+          </div>
+        </div>
+      `;
+    } else if (claim.status === 'rejected') {
+      statusBadge = '<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-error-container text-on-error-container font-label-sm font-bold uppercase"><span class="material-symbols-outlined text-[14px]">cancel</span>Rejected</span>';
+      instructions = `
+        <div class="mt-3 p-3 rounded-xl bg-error-container/30 border border-error-container flex items-start gap-2.5 text-on-surface">
+          <span class="material-symbols-outlined text-error text-[20px] shrink-0 mt-0.5">info</span>
+          <div class="text-body-sm leading-relaxed">
+            <strong class="font-semibold text-error">Proof Insufficient:</strong> The provided ownership proof did not match the item's private identifying marks. You may contact Student Life for manual appeal.
+          </div>
+        </div>
+      `;
+    } else {
+      statusBadge = '<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-secondary-fixed text-primary font-label-sm font-bold uppercase"><span class="material-symbols-outlined text-[14px]">pending</span>Pending Review</span>';
+      instructions = `
+        <div class="mt-3 p-3 rounded-xl bg-surface-container-low border border-surface-container-high flex items-start gap-2.5 text-on-surface-variant">
+          <span class="material-symbols-outlined text-primary text-[20px] shrink-0 mt-0.5">schedule</span>
+          <div class="text-body-sm leading-relaxed">
+            Your claim is pending evaluation by campus desk staff. You will receive an automated alert when reviewed.
+          </div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="bg-surface-container-lowest rounded-2xl p-6 shadow-sm border border-surface-container-high transition-all">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-surface-container-high">
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="font-headline-sm text-headline-sm text-on-surface font-semibold">${escapeHtml(claim.item_title || 'Item #' + claim.item_id)}</h3>
+              ${statusBadge}
+            </div>
+            <p class="font-body-sm text-body-sm text-on-surface-variant mt-0.5">
+              Claim ID #${claim.id} • Filed on ${new Date(claim.created_at).toLocaleDateString()}
+            </p>
+          </div>
+        </div>
+
+        <div class="pt-3 space-y-2">
+          <div>
+            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider block font-semibold">Your Submitted Proof:</span>
+            <p class="font-body-md text-body-md text-on-surface mt-0.5 bg-surface-container-low p-3 rounded-xl border border-surface-container-high">${escapeHtml(claim.proof_details)}</p>
+          </div>
+
+          ${instructions}
+        </div>
+      </div>
+    `;
+  }
+
+  document.addEventListener('DOMContentLoaded', loadMyClaims);
+</script>
+{% endblock %}

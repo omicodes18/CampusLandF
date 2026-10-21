@@ -29,7 +29,7 @@ except ImportError:
                     os.environ.setdefault(key.strip(), val.strip().strip('"').strip("'"))
 
 import database
-from routes import admin_bp, auth_bp, claim_bp, health_bp, items_bp
+from routes import admin_bp, auth_bp, claim_bp, health_bp, items_bp, web_bp
 
 
 def create_app(test_config=None):
@@ -71,10 +71,13 @@ def create_app(test_config=None):
     # Register database teardown and CLI commands
     database.init_app(app)
 
-    # Auto-initialize database tables on first launch if not yet created
+    # Auto-initialize database tables and demo seed on first launch if not in test mode
     with app.app_context():
         try:
             database.init_db()
+            if not app.config.get("TESTING"):
+                from services.seed_service import seed_demo_data_if_empty
+                seed_demo_data_if_empty()
         except Exception as exc:
             app.logger.warning("Auto DB initialization notice: %s", exc)
 
@@ -84,37 +87,7 @@ def create_app(test_config=None):
     app.register_blueprint(admin_bp)
     app.register_blueprint(claim_bp)
     app.register_blueprint(items_bp)
-
-    # Root informational route
-    @app.route("/", methods=["GET"])
-    def index():
-        return jsonify({
-            "project": "College Lost & Found Management System API",
-            "version": "1.0.0",
-            "status": "online",
-            "health_check": "/api/health",
-            "endpoints": {
-                "health": "/api/health",
-                "auth_register": "POST /api/auth/register",
-                "auth_login": "POST /api/auth/login",
-                "auth_logout": "POST /api/auth/logout",
-                "auth_me": "GET /api/auth/me",
-                "notifications": "GET /api/auth/notifications",
-                "notification_read": "PATCH /api/auth/notifications/<id>/read",
-                "items": "GET /api/items",
-                "report_item": "POST /api/items",
-                "item_detail": "GET /api/items/<id>",
-                "claims": "POST /api/items/<id>/claims",
-                "my_claims": "GET /api/claims/my",
-                "admin_users": "GET /api/admin/users",
-                "admin_stats": "GET /api/admin/stats",
-                "admin_claims": "GET /api/admin/claims",
-                "admin_reports": "GET /api/admin/reports",
-                "admin_approve_claim": "POST /api/admin/claims/<id>/approve",
-                "admin_reject_claim": "POST /api/admin/claims/<id>/reject",
-                "admin_item_status": "PATCH /api/admin/items/<id>/status",
-            },
-        }), 200
+    app.register_blueprint(web_bp)
 
     # Structured JSON error handlers
     @app.errorhandler(400)

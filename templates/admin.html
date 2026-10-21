@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard · Campus Lost & Found{% endblock %}
+
+{% block content %}
+<div class="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+  <!-- Ambient background glow -->
+  <div class="absolute -top-12 -left-16 w-64 h-64 bg-secondary-fixed/30 rounded-full blur-3xl pointer-events-none -z-10"></div>
+  <div class="absolute top-1/3 -right-20 w-80 h-80 bg-primary-fixed/20 rounded-full blur-3xl pointer-events-none -z-10"></div>
+
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+    <div>
+      <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-tertiary-fixed text-on-tertiary-fixed font-label-sm text-label-sm uppercase tracking-wider mb-2 font-semibold shadow-xs">
+        <span class="material-symbols-outlined text-[15px]">security</span>
+        <span>Administrator Authority</span>
+      </div>
+      <h1 class="font-headline-xl text-headline-xl text-on-surface tracking-tight">
+        Campus Registry Management
+      </h1>
+      <p class="font-body-lg text-body-lg text-on-surface-variant mt-1">
+        Review pending ownership claims, manage item reports, and oversee system metrics.
+      </p>
+    </div>
+
+    <!-- Quick admin refresh button -->
+    <button onclick="loadAdminData()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-surface-container-low text-on-surface hover:bg-surface-container-high transition-colors font-label-md">
+      <span class="material-symbols-outlined text-[18px]">refresh</span>
+      <span>Refresh Data</span>
+    </button>
+  </div>
+
+  <!-- Unauthorized / Forbidden Notice -->
+  <div id="adminAuthAlert" class="hidden rounded-2xl bg-error-container text-on-error-container p-6 mb-8 text-center border border-error">
+    <span class="material-symbols-outlined text-[36px] mb-2">admin_panel_settings</span>
+    <h3 class="font-headline-sm text-headline-sm font-bold">Admin Privileges Required</h3>
+    <p class="font-body-md text-body-md mt-1 mb-4">You must be logged in as an administrator (role: admin) to access this dashboard.</p>
+    <button onclick="quickFillAuth('admin'); openAuthModal('login');" class="px-5 py-2.5 rounded-lg bg-primary text-on-primary font-label-md shadow-md">
+      Sign In as Admin
+    </button>
+  </div>
+
+  <!-- Admin Content Container -->
+  <div id="adminMainContent" class="space-y-8">
+    
+    <!-- Platform Overview Stats Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="p-5 rounded-2xl bg-surface-container-lowest border border-surface-container-high shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-label-md text-label-md text-on-surface-variant uppercase font-semibold">Total Items</span>
+          <span class="material-symbols-outlined text-primary text-[22px]">inventory_2</span>
+        </div>
+        <p id="statItems" class="font-headline-lg text-headline-lg font-bold text-on-surface">0</p>
+      </div>
+
+      <div class="p-5 rounded-2xl bg-surface-container-lowest border border-surface-container-high shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-label-md text-label-md text-on-surface-variant uppercase font-semibold">Total Claims</span>
+          <span class="material-symbols-outlined text-tertiary text-[22px]">verified</span>
+        </div>
+        <p id="statClaims" class="font-headline-lg text-headline-lg font-bold text-on-surface">0</p>
+      </div>
+
+      <div class="p-5 rounded-2xl bg-surface-container-lowest border border-surface-container-high shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-label-md text-label-md text-on-surface-variant uppercase font-semibold">Registered Users</span>
+          <span class="material-symbols-outlined text-secondary text-[22px]">group</span>
+        </div>
+        <p id="statUsers" class="font-headline-lg text-headline-lg font-bold text-on-surface">0</p>
+      </div>
+
+      <div class="p-5 rounded-2xl bg-surface-container-lowest border border-surface-container-high shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-label-md text-label-md text-on-surface-variant uppercase font-semibold">Notifications</span>
+          <span class="material-symbols-outlined text-primary text-[22px]">notifications</span>
+        </div>
+        <p id="statNotifs" class="font-headline-lg text-headline-lg font-bold text-on-surface">0</p>
+      </div>
+    </div>
+
+    <!-- SECTION 1: PENDING CLAIMS REVIEW -->
+    <div class="rounded-2xl bg-surface-container-lowest border border-surface-container-high shadow-sm p-6">
+      <div class="flex items-center justify-between pb-4 border-b border-surface-container-high mb-4">
+        <div>
+          <h2 class="font-headline-sm text-headline-sm text-on-surface font-bold flex items-center gap-2">
+            <span class="material-symbols-outlined text-tertiary">gavel</span>
+            <span>Ownership Claims Review</span>
+          </h2>
+          <p class="font-body-sm text-body-sm text-on-surface-variant">Review proof submitted by students and approve custody releases.</p>
+        </div>
+      </div>
+
+      <div id="adminClaimsList" class="space-y-3">
+        <p class="text-center py-6 text-body-sm text-on-surface-variant">Loading claims...</p>
+      </div>
+    </div>
+
+    <!-- SECTION 2: ALL REPORTS STATUS MANAGEMENT -->
+    <div class="rounded-2xl bg-surface-container-lowest border border-surface-container-high shadow-sm p-6">
+      <div class="flex items-center justify-between pb-4 border-b border-surface-container-high mb-4">
+        <div>
+          <h2 class="font-headline-sm text-headline-sm text-on-surface font-bold flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary">assignment</span>
+            <span>Campus Registry Reports &amp; Status Transitions</span>
+          </h2>
+          <p class="font-body-sm text-body-sm text-on-surface-variant">Update item statuses to 'returned' or 'resolved' after physical pickup.</p>
+        </div>
+      </div>
+
+      <div id="adminReportsList" class="space-y-3">
+        <p class="text-center py-6 text-body-sm text-on-surface-variant">Loading reports...</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  async function loadAdminData() {
+    const alertBox = document.getElementById('adminAuthAlert');
+    const mainContent = document.getElementById('adminMainContent');
+
+    // Verify current user is admin
+    if (!currentUser || currentUser.role !== 'admin') {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          currentUser = data.user;
+        }
+      } catch (e) {}
+    }
+
+    if (!currentUser || currentUser.role !== 'admin') {
+      alertBox.classList.remove('hidden');
+      mainContent.classList.add('hidden');
+      return;
+    }
+
+    alertBox.classList.add('hidden');
+    mainContent.classList.remove('hidden');
+
+    loadStats();
+    loadAdminClaims();
+    loadAdminReports();
+  }
+
+  async function loadStats() {
+    try {
+      const res = await fetch('/api/admin/stats');
+      if (res.ok) {
+        const data = await res.json();
+        const s = data.stats;
+        document.getElementById('statItems').textContent = s.total_items;
+        document.getElementById('statClaims').textContent = s.total_claims;
+        document.getElementById('statUsers').textContent = s.total_users;
+        document.getElementById('statNotifs').textContent = s.total_notifications;
+      }
+    } catch (e) {
+      console.warn('Error loading stats:', e);
+    }
+  }
+
+  async function loadAdminClaims() {
+    const list = document.getElementById('adminClaimsList');
+    try {
+      const res = await fetch('/api/admin/claims');
+      if (res.ok) {
+        const data = await res.json();
+        const claims = data.claims || [];
+
+        if (claims.length === 0) {
+          list.innerHTML = '<p class="text-center py-8 text-on-surface-variant font-body-md">No claims submitted yet.</p>';
+          return;
+        }
+
+        list.innerHTML = claims.map(c => `
+          <div class="p-4 rounded-xl bg-surface-container-low border border-surface-container-high flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="font-label-lg font-bold text-on-surface">Claim #${c.id} on ${escapeHtml(c.item_title || 'Item #' + c.item_id)}</span>
+                <span class="px-2 py-0.5 rounded-full text-xs font-bold uppercase ${c.status === 'approved' ? 'bg-tertiary-fixed text-on-tertiary-fixed' : c.status === 'rejected' ? 'bg-error-container text-on-error-container' : 'bg-secondary-fixed text-primary'}">${c.status}</span>
+              </div>
+              <p class="font-body-sm text-on-surface-variant">Claimant ID: #${c.claimant_id} (${escapeHtml(c.claimant_name || '')}) • Filed on ${new Date(c.created_at).toLocaleDateString()}</p>
+              <div class="mt-2 p-2.5 rounded-lg bg-surface-container-lowest border border-surface-container-high text-body-sm text-on-surface">
+                <span class="font-semibold text-primary">Submitted Proof:</span> ${escapeHtml(c.proof_details)}
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0">
+              ${c.status === 'pending' ? `
+                <button onclick="reviewClaimAction(${c.id}, 'approve')" class="px-3.5 py-2 rounded-lg bg-tertiary text-on-tertiary font-label-md font-semibold hover:bg-on-tertiary-fixed-variant transition-colors flex items-center gap-1 shadow-xs">
+                  <span class="material-symbols-outlined text-[16px]">check</span>
+                  <span>Approve</span>
+                </button>
+                <button onclick="reviewClaimAction(${c.id}, 'reject')" class="px-3.5 py-2 rounded-lg bg-error-container text-on-error-container font-label-md font-semibold hover:bg-error hover:text-on-error transition-colors flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[16px]">close</span>
+                  <span>Reject</span>
+                </button>
+              ` : `
+                <span class="text-xs text-on-surface-variant font-medium">Reviewed</span>
+              `}
+            </div>
+          </div>
+        `).join('');
+      }
+    } catch (e) {
+      list.innerHTML = '<p class="text-center py-4 text-error">Failed to load claims list.</p>';
+    }
+  }
+
+  async function reviewClaimAction(claimId, action) {
+    if (!confirm(`Are you sure you want to ${action} claim #${claimId}?`)) return;
+
+    try {
+      const res = await fetch(`/api/admin/claims/${claimId}/${action}`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`Claim #${claimId} ${action}d successfully!`);
+        loadAdminClaims();
+        loadStats();
+      } else {
+        showToast(data.error?.message || `Failed to ${action} claim`, 'error');
+      }
+    } catch (e) {
+      showToast('Connection error', 'error');
+    }
+  }
+
+  async function loadAdminReports() {
+    const list = document.getElementById('adminReportsList');
+    try {
+      const res = await fetch('/api/admin/reports');
+      if (res.ok) {
+        const data = await res.json();
+        const reports = data.reports || [];
+
+        if (reports.length === 0) {
+          list.innerHTML = '<p class="text-center py-8 text-on-surface-variant font-body-md">No reports in system.</p>';
+          return;
+        }
+
+        list.innerHTML = reports.map(r => `
+          <div class="p-4 rounded-xl bg-surface-container-low border border-surface-container-high flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="font-label-lg font-bold text-on-surface truncate">${escapeHtml(r.title)}</span>
+                <span class="px-2 py-0.5 rounded-full text-xs font-bold uppercase ${r.type === 'found' ? 'bg-tertiary-fixed text-on-tertiary-fixed' : 'bg-primary-fixed text-primary'}">${r.type}</span>
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold capitalize bg-surface-container text-on-surface-variant">${r.status}</span>
+              </div>
+              <p class="font-body-sm text-on-surface-variant">Location: ${escapeHtml(r.location)} • Category: ${escapeHtml(r.category)} • Date: ${r.date_event}</p>
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0">
+              <select onchange="updateItemStatusAction(${r.id}, this.value)" class="h-9 px-3 rounded-lg bg-surface-container-lowest text-on-surface text-body-sm border border-surface-container-high focus:outline-none focus:ring-1 focus:ring-primary">
+                <option value="open" ${r.status === 'open' ? 'selected' : ''}>Status: Open</option>
+                <option value="claimed" ${r.status === 'claimed' ? 'selected' : ''}>Status: Claimed</option>
+                <option value="resolved" ${r.status === 'resolved' ? 'selected' : ''}>Status: Resolved</option>
+                <option value="returned" ${r.status === 'returned' ? 'selected' : ''}>Status: Returned</option>
+              </select>
+            </div>
+          </div>
+        `).join('');
+      }
+    } catch (e) {
+      list.innerHTML = '<p class="text-center py-4 text-error">Failed to load reports list.</p>';
+    }
+  }
+
+  async function updateItemStatusAction(itemId, newStatus) {
+    try {
+      const res = await fetch(`/api/admin/items/${itemId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`Item #${itemId} updated to '${newStatus}'`);
+        loadAdminReports();
+      } else {
+        showToast(data.error?.message || 'Failed to update status', 'error');
+        loadAdminReports();
+      }
+    } catch (e) {
+      showToast('Connection error', 'error');
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', loadAdminData);
+</script>
+{% endblock %}

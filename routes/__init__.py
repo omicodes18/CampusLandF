@@ -6,6 +6,7 @@ from routes.auth_routes import admin_required, auth_bp, login_required
 from routes.claim_routes import claim_bp
 from routes.health import health_bp
 from routes.item_routes import items_bp
+from routes.web_routes import web_bp
 
 __all__ = [
     "admin_bp",
@@ -15,4 +16,5 @@ __all__ = [
     "health_bp",
     "items_bp",
     "login_required",
+    "web_bp",
 ]

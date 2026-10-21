@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+
+{% block title %}Report an Item · Campus Lost & Found{% endblock %}
+
+{% block content %}
+<div class="relative w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+  <!-- Delicate background glow -->
+  <div class="absolute -top-12 -left-16 w-64 h-64 bg-secondary-fixed/30 rounded-full blur-3xl pointer-events-none -z-10"></div>
+  <div class="absolute top-1/3 -right-20 w-80 h-80 bg-primary-fixed/20 rounded-full blur-3xl pointer-events-none -z-10"></div>
+
+  <!-- Header Section -->
+  <div class="text-center max-w-2xl mx-auto mb-8 md:mb-10">
+    <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed font-label-sm text-label-sm uppercase tracking-wider mb-4 shadow-sm font-semibold">
+      <span>Student Reassurance Registry</span>
+      <span class="text-primary font-bold">•</span>
+      <span>Campus Safe-Link</span>
+    </div>
+    <h1 id="pageTitle" class="font-headline-xl text-headline-xl text-on-surface mb-3 tracking-tight">
+      Oh no, something’s missing!
+    </h1>
+    <p id="pageSubtitle" class="font-body-lg text-body-lg text-on-surface-variant leading-relaxed">
+      Fill in the details below to publish an item notice on the campus board. Our system automatically matches lost reports with found items.
+    </p>
+
+    <!-- Report Type Switcher: Lost vs Found -->
+    <div class="mt-6 inline-flex p-1 bg-surface-container-low rounded-xl border border-surface-container-high shadow-xs">
+      <button type="button" id="toggleLostBtn" onclick="setItemType('lost')" class="px-5 py-2 rounded-lg font-label-lg text-label-lg bg-primary text-on-primary shadow-sm transition-all">
+        Report Lost Item
+      </button>
+      <button type="button" id="toggleFoundBtn" onclick="setItemType('found')" class="px-5 py-2 rounded-lg font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface transition-all">
+        Report Found Item
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Card Container -->
+  <div class="w-full bg-surface-container-lowest rounded-2xl shadow-xl p-6 sm:p-10 relative overflow-hidden border border-surface-container-high">
+    <!-- Top Bar Accent -->
+    <div class="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary-fixed via-primary to-primary-container"></div>
+
+    <!-- Step Indicator -->
+    <div class="bg-surface-container-low rounded-xl p-4 mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-surface-container-high">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center font-label-md text-label-md shadow-sm font-bold">
+          1
+        </div>
+        <div>
+          <p class="font-label-lg text-label-lg text-on-surface leading-snug font-semibold">Step 1 of 2: Item Information &amp; Custody Details</p>
+          <p class="font-body-sm text-body-sm text-on-surface-variant">Next: Automated Campus Registry Directory Match</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 self-end sm:self-auto">
+        <div class="w-24 sm:w-32 h-2 rounded-full bg-surface-container-highest overflow-hidden">
+          <div class="h-full bg-primary rounded-full transition-all duration-300" style="width: 50%;"></div>
+        </div>
+        <span class="font-label-sm text-label-sm text-primary font-bold">50%</span>
+      </div>
+    </div>
+
+    <!-- Feedback Banner -->
+    <div id="formAlert" class="hidden mb-6 p-4 rounded-xl text-body-md font-medium"></div>
+
+    <!-- Report Form -->
+    <form id="reportForm" onsubmit="handleReportSubmit(event)" class="space-y-7">
+      <input type="hidden" id="itemTypeInput" name="type" value="lost">
+
+      <!-- 1. Item Name -->
+      <div class="space-y-1.5">
+        <label class="block font-label-lg text-label-lg text-on-surface font-semibold" for="itemTitle">
+          Item Name / Title <span class="text-primary">*</span>
+        </label>
+        <input required id="itemTitle" name="title" class="w-full h-11 px-3.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md placeholder:text-on-surface-variant/60 shadow-inner focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all" placeholder="e.g., Pink Hydro Flask 32oz with strawberry sticker" type="text">
+        <p class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[16px] text-primary">info</span>
+          Keep it concise and descriptive so students or staff can identify it immediately.
+        </p>
+      </div>
+
+      <!-- 2. Category Dropdown -->
+      <div class="space-y-1.5">
+        <label class="block font-label-lg text-label-lg text-on-surface font-semibold" for="itemCategory">
+          Category <span class="text-primary">*</span>
+        </label>
+        <div class="relative">
+          <select required id="itemCategory" name="category" class="w-full h-11 px-3.5 pr-10 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md appearance-none shadow-inner focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all cursor-pointer">
+            <option value="" disabled selected>Select Item Category</option>
+            <option value="Electronics">💻 Electronics, Audio &amp; Chargers</option>
+            <option value="Bags & Wallets">🎒 Bags, Wallets &amp; Backpacks</option>
+            <option value="ID Cards & Documents">🪪 Student ID Cards &amp; Official Documents</option>
+            <option value="Keys">🔑 Keys, Keychains &amp; Lanyards</option>
+            <option value="Books & Stationery">📚 Books, Notebooks &amp; Stationery</option>
+            <option value="Clothing">🧣 Clothing, Jackets &amp; Beanies</option>
+            <option value="Others">✨ Others &amp; Personal Accessories</option>
+          </select>
+          <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-[20px]">
+            expand_more
+          </span>
+        </div>
+      </div>
+
+      <!-- 3. Approximate Date & Location -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="space-y-1.5">
+          <label class="block font-label-lg text-label-lg text-on-surface font-semibold" for="itemDate">
+            Date of Incident <span class="text-primary">*</span>
+          </label>
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">calendar_today</span>
+            <input required id="itemDate" name="date_event" type="date" class="w-full h-11 pl-10 pr-3 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md shadow-inner focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all">
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="block font-label-lg text-label-lg text-on-surface font-semibold" for="itemLocation">
+            Campus Location / Building <span class="text-primary">*</span>
+          </label>
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">pin_drop</span>
+            <input required id="itemLocation" name="location" type="text" placeholder="e.g., Central Library 2nd Floor or Student Union" class="w-full h-11 pl-10 pr-3 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md shadow-inner focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all">
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Detailed Description -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between">
+          <label class="font-label-lg text-label-lg text-on-surface font-semibold" for="itemDescription">
+            Detailed Description <span class="text-primary">*</span>
+          </label>
+          <span class="font-label-sm text-label-sm text-on-surface-variant" id="charCounter">0 / 500</span>
+        </div>
+        <textarea required id="itemDescription" name="description" maxlength="500" rows="3" class="w-full p-3.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md placeholder:text-on-surface-variant/60 shadow-inner focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-y leading-relaxed" placeholder="Describe brand, color, distinguishing stickers, scratches, or accessories..."></textarea>
+      </div>
+
+      <!-- 5. Photo Upload Zone with Live Preview -->
+      <div class="space-y-3">
+        <label class="block font-label-lg text-label-lg text-on-surface font-semibold">
+          Photo Upload <span class="text-on-surface-variant font-normal">(Optional, PNG/JPG up to 5MB)</span>
+        </label>
+        
+        <input type="file" id="imageFileInput" name="image" accept="image/*" class="hidden">
+        
+        <!-- Drag & Drop Click Zone -->
+        <div id="dropZone" onclick="document.getElementById('imageFileInput').click()" class="p-6 rounded-xl bg-surface-container-low text-center flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-secondary-fixed/20 border-2 border-dashed border-surface-container-high group">
+          <div class="w-12 h-12 rounded-full bg-secondary-fixed text-primary flex items-center justify-center mb-3 group-hover:scale-105 transition-transform shadow-xs">
+            <span class="material-symbols-outlined text-[24px]">cloud_upload</span>
+          </div>
+          <p class="font-headline-sm text-headline-sm text-on-surface mb-1">
+            Drag and drop a photo here, or <span class="text-primary underline">browse files</span>
+          </p>
+          <p class="font-body-sm text-body-sm text-on-surface-variant max-w-sm">
+            Attaching clear photos helps students and campus security verify ownership 70% faster.
+          </p>
+        </div>
+
+        <!-- Preview Card -->
+        <div id="imagePreviewCard" class="hidden bg-surface-container-lowest rounded-xl p-3 shadow-md flex items-center justify-between gap-3 border border-surface-container-high">
+          <div class="flex items-center gap-3 min-w-0">
+            <img id="imagePreviewImg" class="w-14 h-14 rounded-lg object-cover shadow-xs shrink-0" src="" alt="Selected Photo">
+            <div class="min-w-0">
+              <p id="imagePreviewName" class="font-label-lg text-label-lg text-on-surface truncate font-semibold">photo.jpg</p>
+              <p id="imagePreviewSize" class="font-body-sm text-body-sm text-on-surface-variant">1.2 MB</p>
+            </div>
+          </div>
+          <button type="button" onclick="removeSelectedImage()" class="px-3 py-1.5 rounded-lg text-error hover:bg-error-container/40 font-label-md text-label-md transition-colors flex items-center gap-1 shrink-0">
+            <span class="material-symbols-outlined text-[16px]">delete</span>
+            <span>Remove</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 6. Optional Contact Preferences -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-surface-container-high">
+        <div>
+          <label class="block font-label-md text-label-md text-on-surface mb-1" for="contactEmail">Contact Email (Optional)</label>
+          <input id="contactEmail" name="contact_email" type="email" placeholder="student@campus.edu" class="w-full h-11 px-3.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md shadow-inner focus:outline-none focus:ring-2 focus:ring-primary/40">
+        </div>
+        <div>
+          <label class="block font-label-md text-label-md text-on-surface mb-1" for="contactPhone">Contact Phone (Optional)</label>
+          <input id="contactPhone" name="contact_phone" type="tel" placeholder="(555) 012-3456" class="w-full h-11 px-3.5 rounded-lg bg-surface-container-low text-on-surface font-body-md text-body-md shadow-inner focus:outline-none focus:ring-2 focus:ring-primary/40">
+        </div>
+      </div>
+
+      <!-- Campus Safety Protocol Notice -->
+      <div class="bg-secondary-fixed/50 rounded-xl p-4 flex items-start gap-3 border border-secondary-fixed">
+        <span class="material-symbols-outlined text-primary text-[20px] shrink-0 mt-0.5">security</span>
+        <div>
+          <p class="font-label-lg text-label-lg text-on-secondary-fixed mb-0.5 font-bold">Campus Safety Protocol</p>
+          <p class="font-body-sm text-body-sm text-on-secondary-fixed leading-relaxed">
+            Please avoid publishing sensitive personal data such as full credit card numbers, passwords, or house room keys. High-value assets should be deposited with Central Campus Security.
+          </p>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="pt-4 flex flex-col-reverse sm:flex-row items-center justify-between gap-4">
+        <a href="/browse" class="w-full sm:w-auto text-center px-5 py-2.5 rounded-lg bg-surface-container-low text-on-surface font-label-lg hover:bg-surface-container-high transition-colors font-medium">
+          Cancel &amp; Return to Browse
+        </a>
+        <button type="submit" id="submitReportBtn" class="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-primary text-on-primary font-label-lg shadow-md hover:bg-primary-container hover:shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 font-semibold">
+          <span class="material-symbols-outlined text-[18px]">publish</span>
+          <span id="submitBtnText">Publish Lost Item Report</span>
+        </button>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+<script>
+  let currentType = 'lost';
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Set default date to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('itemDate').value = today;
+
+    // Check query params for initial type
+    const urlParams = new URLSearchParams(window.location.search);
+    const typeParam = urlParams.get('type');
+    if (typeParam === 'found') {
+      setItemType('found');
+    } else {
+      setItemType('lost');
+    }
+
+    // Character counter for description
+    const descInput = document.getElementById('itemDescription');
+    const charCounter = document.getElementById('charCounter');
+    descInput.addEventListener('input', () => {
+      charCounter.textContent = `${descInput.value.length} / 500`;
+    });
+
+    // File input preview
+    const fileInput = document.getElementById('imageFileInput');
+    fileInput.addEventListener('change', handleFileSelect);
+
+    // Drag and drop events
+    const dropZone = document.getElementById('dropZone');
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-primary', 'bg-secondary-fixed/30');
+      });
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-primary', 'bg-secondary-fixed/30');
+      });
+    });
+    dropZone.addEventListener('drop', (e) => {
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        fileInput.files = e.dataTransfer.files;
+        handleFileSelect();
+      }
+    });
+  });
+
+  function setItemType(type) {
+    currentType = type;
+    document.getElementById('itemTypeInput').value = type;
+
+    const lostBtn = document.getElementById('toggleLostBtn');
+    const foundBtn = document.getElementById('toggleFoundBtn');
+    const title = document.getElementById('pageTitle');
+    const submitBtnText = document.getElementById('submitBtnText');
+
+    if (type === 'found') {
+      foundBtn.className = "px-5 py-2 rounded-lg font-label-lg text-label-lg bg-tertiary text-on-tertiary shadow-sm transition-all";
+      lostBtn.className = "px-5 py-2 rounded-lg font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface transition-all";
+      title.textContent = "Found something on campus?";
+      submitBtnText.textContent = "Publish Found Item Report";
+    } else {
+      lostBtn.className = "px-5 py-2 rounded-lg font-label-lg text-label-lg bg-primary text-on-primary shadow-sm transition-all";
+      foundBtn.className = "px-5 py-2 rounded-lg font-label-lg text-label-lg text-on-surface-variant hover:text-on-surface transition-all";
+      title.textContent = "Oh no, something’s missing!";
+      submitBtnText.textContent = "Publish Lost Item Report";
+    }
+  }
+
+  function handleFileSelect() {
+    const fileInput = document.getElementById('imageFileInput');
+    if (!fileInput.files || !fileInput.files[0]) return;
+
+    const file = fileInput.files[0];
+    const previewCard = document.getElementById('imagePreviewCard');
+    const previewImg = document.getElementById('imagePreviewImg');
+    const nameP = document.getElementById('imagePreviewName');
+    const sizeP = document.getElementById('imagePreviewSize');
+
+    nameP.textContent = file.name;
+    sizeP.textContent = `${(file.size / (1024 * 1024)).toFixed(2)} MB • Ready to upload`;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      previewImg.src = e.target.result;
+      previewCard.classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removeSelectedImage() {
+    document.getElementById('imageFileInput').value = '';
+    document.getElementById('imagePreviewCard').classList.add('hidden');
+    document.getElementById('imagePreviewImg').src = '';
+  }
+
+  async function handleReportSubmit(e) {
+    e.preventDefault();
+    const alertBox = document.getElementById('formAlert');
+    const submitBtn = document.getElementById('submitReportBtn');
+    alertBox.classList.add('hidden');
+
+    // Check if user is logged in
+    if (!currentUser) {
+      showToast('Please sign in or create an account to file an item report.', 'info');
+      openAuthModal('login');
+      return;
+    }
+
+    const form = document.getElementById('reportForm');
+    const formData = new FormData(form);
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span><span>Publishing notice...</span>';
+
+    try {
+      const res = await fetch('/api/items', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        showToast('Report published successfully! Redirecting to board...');
+        alertBox.className = "mb-6 p-4 rounded-xl text-body-md bg-tertiary-fixed text-on-tertiary-fixed flex items-center gap-2";
+        alertBox.innerHTML = '<span class="material-symbols-outlined text-tertiary">check_circle</span><span>Report posted to campus registry! Redirecting to board...</span>';
+        alertBox.classList.remove('hidden');
+
+        setTimeout(() => {
+          window.location.href = '/browse';
+        }, 1200);
+      } else {
+        alertBox.className = "mb-6 p-4 rounded-xl text-body-md bg-error-container text-on-error-container";
+        alertBox.textContent = data.error?.message || 'Failed to submit report. Please check fields.';
+        alertBox.classList.remove('hidden');
+      }
+    } catch (err) {
+      alertBox.className = "mb-6 p-4 rounded-xl text-body-md bg-error-container text-on-error-container";
+      alertBox.textContent = 'Server connection error. Please try again.';
+      alertBox.classList.remove('hidden');
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">publish</span><span>Publish Report</span>';
+    }
+  }
+</script>
+{% endblock %}
