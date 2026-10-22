@@ -1,6 +1,6 @@
 # College Lost & Found Management Website
 
-A modern, full-stack campus **Lost & Found Management System**, built using **Python Flask**, **SQLite**, **Tailwind CSS (Stitch Blush Collegiate UI/UX)**, and **pytest**.
+A modern, full-stack campus **Lost & Found Management System**, built using **Python Flask**, **SQLite**, **Tailwind CSS **, and **pytest**.
 
 This project features both a responsive Web User Interface and RESTful API endpoints structured for academic clarity, ease of explanation during technical vivas/presentations, and adherence to software engineering standards.
 
@@ -8,7 +8,7 @@ This project features both a responsive Web User Interface and RESTful API endpo
 
 ## 🎨 Frontend UI/UX Design System (Blush Collegiate)
 
-The user interface follows the **Blush Collegiate** design language designed via Stitch AI:
+The user interface follows the **Blush Collegiate** design.
 - **Color Palette**:
   - Primary: `#974259` (Deep Berry / Rose)
   - Secondary Container: `#f8dce2` (Blush Accent)
