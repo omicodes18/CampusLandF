@@ -44,12 +44,19 @@
     <!-- Search & Segmented Filter Bar -->
     <div class="bg-surface-container-lowest p-space-md rounded-2xl shadow-sm flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-space-md border border-surface-container-high">
       
-      <!-- Search Input -->
-      <div class="relative flex-1">
-        <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px] pointer-events-none">search</span>
-        <input id="searchInput" class="w-full h-11 pl-11 pr-10 rounded-xl bg-surface-container-low font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/70 focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container shadow-inner transition-all" placeholder="Search for headphones, keys, ID cards, hydro flask, textbooks..." type="text">
-        <button id="clearSearchBtn" onclick="clearSearch()" aria-label="Clear search" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 hover:text-on-surface" type="button">
-          <span class="material-symbols-outlined text-[18px]">cancel</span>
+      <!-- Search Input & Visual Search Trigger -->
+      <div class="flex items-center gap-2 flex-1">
+        <div class="relative flex-1">
+          <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px] pointer-events-none">search</span>
+          <input id="searchInput" class="w-full h-11 pl-11 pr-10 rounded-xl bg-surface-container-low font-body-md text-body-md text-on-surface placeholder:text-on-surface-variant/70 focus:outline-none focus:bg-surface-container-lowest focus:ring-2 focus:ring-primary-container shadow-inner transition-all" placeholder="Search for headphones, keys, ID cards, hydro flask, textbooks..." type="text">
+          <button id="clearSearchBtn" onclick="clearSearch()" aria-label="Clear search" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50 hover:text-on-surface" type="button">
+            <span class="material-symbols-outlined text-[18px]">cancel</span>
+          </button>
+        </div>
+        <!-- Search by Image Toggle Button -->
+        <button id="toggleImageSearchBtn" onclick="toggleImageSearchPanel()" class="px-3.5 h-11 rounded-xl bg-secondary-fixed text-primary font-label-md hover:bg-secondary-fixed-dim transition-all flex items-center gap-1.5 shadow-xs whitespace-nowrap active:scale-95" type="button" title="Upload a photo to find visually similar items using OpenAI CLIP">
+          <span class="material-symbols-outlined text-[19px]">photo_camera</span>
+          <span class="hidden sm:inline font-semibold">Search by Image</span>
         </button>
       </div>
 
@@ -76,6 +83,80 @@
         <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px] pointer-events-none">unfold_more</span>
       </div>
 
+    </div>
+
+    <!-- OpenAI CLIP Image Similarity Search Panel (Collapsible) -->
+    <div id="imageSearchPanel" class="hidden bg-surface-container-lowest p-5 rounded-2xl shadow-sm border border-secondary-fixed flex flex-col gap-3 transition-all animate-in fade-in duration-200">
+      <div class="flex items-start justify-between pb-2 border-b border-surface-container-high">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-primary-fixed flex items-center justify-center text-primary shrink-0">
+            <span class="material-symbols-outlined text-[20px]">photo_camera</span>
+          </div>
+          <div>
+            <h3 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-2">
+              <span>Search by Image</span>
+              <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-secondary-fixed text-primary">OpenAI CLIP ViT-B/32</span>
+            </h3>
+            <p class="font-body-sm text-[12px] text-on-surface-variant mt-0.5">
+              Upload a photograph of your lost or found item. CLIP compares visual semantic features to find similar listings.
+            </p>
+          </div>
+        </div>
+        <button onclick="toggleImageSearchPanel(false)" class="text-on-surface-variant hover:text-on-surface p-1 rounded-lg hover:bg-surface-container-low" type="button" aria-label="Close image search">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <!-- Drag & Drop Zone -->
+      <div id="imageDropZone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" onclick="document.getElementById('imageFileInput').click()" class="border-2 border-dashed border-primary/30 rounded-xl p-5 text-center bg-surface-container-low/40 hover:bg-surface-container-low cursor-pointer transition-all flex flex-col items-center justify-center gap-2">
+        <input type="file" id="imageFileInput" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden" onchange="handleImageFileSelect(event)">
+        
+        <div id="dropZonePlaceholder" class="flex flex-col items-center gap-1.5 py-2">
+          <span class="material-symbols-outlined text-[36px] text-primary">add_photo_alternate</span>
+          <p class="font-label-md text-on-surface font-semibold">
+            Drop an item photo here, or <span class="text-primary underline underline-offset-2">browse file</span>
+          </p>
+          <p class="font-body-sm text-[12px] text-on-surface-variant">Supports JPEG, PNG, or WebP up to 5MB</p>
+        </div>
+
+        <!-- Preview when file is selected -->
+        <div id="dropZonePreview" class="hidden flex items-center gap-3.5 w-full max-w-md bg-surface-container-lowest p-2.5 rounded-xl border border-surface-container-high text-left">
+          <img id="imagePreviewImg" src="" alt="Selected image" class="w-14 h-14 rounded-lg object-cover border border-surface-container-high shrink-0">
+          <div class="min-w-0 flex-1">
+            <p id="imagePreviewName" class="font-label-md text-on-surface truncate font-semibold">photo.jpg</p>
+            <p id="imagePreviewSize" class="font-body-sm text-[12px] text-on-surface-variant">0 KB</p>
+            <span class="inline-flex items-center gap-1 text-[11px] text-tertiary font-semibold">
+              <span class="material-symbols-outlined text-[13px]">check_circle</span> Ready to search
+            </span>
+          </div>
+          <button onclick="clearSelectedImage(event)" type="button" class="text-on-surface-variant hover:text-error p-1.5 rounded-lg hover:bg-surface-container-low" title="Remove selected file">
+            <span class="material-symbols-outlined text-[18px]">delete</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Image Search Error Notification -->
+      <div id="imageSearchError" class="hidden p-2.5 rounded-xl bg-error-container text-on-error-container font-body-sm text-[13px] flex items-center gap-2">
+        <span class="material-symbols-outlined text-[18px]">error</span>
+        <span id="imageSearchErrorMessage">Error message</span>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center justify-between pt-1 flex-wrap gap-2">
+        <div class="text-[12px] text-on-surface-variant flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[15px] text-primary">filter_alt</span>
+          <span>Searches within active tab (<span id="searchScopeLabel">All Items</span>) &amp; category filters.</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="cancelImageSearch()" class="px-3.5 py-2 rounded-lg bg-surface-container-low text-on-surface font-label-md hover:bg-surface-container-high transition-colors">
+            Cancel
+          </button>
+          <button type="button" id="executeImageSearchBtn" onclick="executeImageSearch()" disabled class="px-5 py-2 rounded-lg bg-primary text-on-primary font-label-md shadow-sm hover:bg-on-primary-fixed-variant disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 font-semibold active:scale-95">
+            <span class="material-symbols-outlined text-[18px]">saved_search</span>
+            <span>Search Visual Matches</span>
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Main Content Layout: Filter Sidebar & Catalog Grid -->
@@ -219,6 +300,31 @@
           </div>
         </div>
 
+        <!-- Active Visual Search Banner (Only visible when image similarity search is active) -->
+        <div id="visualSearchActiveBanner" class="hidden p-3.5 rounded-2xl bg-secondary-fixed/50 border border-secondary-fixed-dim flex items-center justify-between gap-3 flex-wrap shadow-xs">
+          <div class="flex items-center gap-3 min-w-0">
+            <img id="activeQueryThumb" src="" alt="Query photo preview" class="w-12 h-12 rounded-xl object-cover border border-secondary-fixed-dim shrink-0 shadow-xs">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-label-md text-label-md text-on-secondary-fixed font-bold flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[18px] text-primary">auto_awesome</span>
+                  <span>Visual Similarity Search Active</span>
+                </span>
+                <span id="activeModelBadge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-surface-container-lowest text-primary shadow-xs">
+                  CLIP ViT-B/32
+                </span>
+              </div>
+              <p class="font-body-sm text-[12px] text-on-secondary-fixed-variant truncate">
+                Items ranked by neural feature cosine similarity. Disclaimers: visual similarity is not proof of identity.
+              </p>
+            </div>
+          </div>
+          <button onclick="clearVisualSearch()" class="px-3 py-1.5 rounded-xl bg-surface-container-lowest text-primary hover:bg-surface-container font-label-sm text-label-sm font-semibold border border-primary/20 shadow-xs flex items-center gap-1.5 transition-colors shrink-0">
+            <span class="material-symbols-outlined text-[16px]">close</span>
+            <span>Exit Visual Search</span>
+          </button>
+        </div>
+
         <!-- 3x3 Cards Grid -->
         <div id="boardItemsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-md">
           <!-- Loaded dynamically via JavaScript -->
@@ -351,6 +457,11 @@
   let currentStatus = 'all';
   let searchQuery = '';
 
+  // Visual Image Similarity Search State
+  let isImageSearchActive = false;
+  let visualSearchResults = [];
+  let selectedImageFile = null;
+
   // Initialize board from query parameters if provided
   document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -380,9 +491,201 @@
       } else {
         document.getElementById('clearSearchBtn').classList.add('hidden');
       }
+      if (isImageSearchActive) {
+        // Exit visual search mode when user explicitly types keyword query
+        clearVisualSearch(false);
+      }
       filterAndRender();
     });
   });
+
+  // ===========================================================================
+  // OpenAI CLIP Image Similarity Search UI & Handlers
+  // ===========================================================================
+
+  function toggleImageSearchPanel(forceState) {
+    const panel = document.getElementById('imageSearchPanel');
+    const isHidden = panel.classList.contains('hidden');
+    const shouldOpen = forceState !== undefined ? forceState : isHidden;
+
+    if (shouldOpen) {
+      panel.classList.remove('hidden');
+      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      panel.classList.add('hidden');
+    }
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('imageDropZone').classList.add('border-primary', 'bg-surface-container-high/60');
+  }
+
+  function handleDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('imageDropZone').classList.remove('border-primary', 'bg-surface-container-high/60');
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    document.getElementById('imageDropZone').classList.remove('border-primary', 'bg-surface-container-high/60');
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processSelectedImage(e.dataTransfer.files[0]);
+    }
+  }
+
+  function handleImageFileSelect(e) {
+    if (e.target.files && e.target.files.length > 0) {
+      processSelectedImage(e.target.files[0]);
+    }
+  }
+
+  function processSelectedImage(file) {
+    const errorBox = document.getElementById('imageSearchError');
+    const errorMsg = document.getElementById('imageSearchErrorMessage');
+    errorBox.classList.add('hidden');
+
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!validTypes.includes(file.type.toLowerCase()) && !file.name.match(/\.(jpg|jpeg|png|webp|gif)$/i)) {
+      errorMsg.textContent = 'Please choose a valid photograph (JPEG, PNG, or WebP).';
+      errorBox.classList.remove('hidden');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      errorMsg.textContent = 'Selected image exceeds the 5MB file size limit.';
+      errorBox.classList.remove('hidden');
+      return;
+    }
+
+    selectedImageFile = file;
+
+    // Show preview in dropzone
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      document.getElementById('imagePreviewImg').src = ev.target.result;
+      document.getElementById('imagePreviewName').textContent = file.name;
+      document.getElementById('imagePreviewSize').textContent = `${(file.size / 1024).toFixed(1)} KB`;
+      document.getElementById('dropZonePlaceholder').classList.add('hidden');
+      document.getElementById('dropZonePreview').classList.remove('hidden');
+      document.getElementById('executeImageSearchBtn').disabled = false;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function clearSelectedImage(e) {
+    if (e) {
+      e.stopPropagation();
+    }
+    selectedImageFile = null;
+    document.getElementById('imageFileInput').value = '';
+    document.getElementById('dropZonePlaceholder').classList.remove('hidden');
+    document.getElementById('dropZonePreview').classList.add('hidden');
+    document.getElementById('executeImageSearchBtn').disabled = true;
+    document.getElementById('imageSearchError').classList.add('hidden');
+  }
+
+  function cancelImageSearch() {
+    clearSelectedImage();
+    toggleImageSearchPanel(false);
+  }
+
+  async function executeImageSearch() {
+    if (!selectedImageFile) return;
+
+    const btn = document.getElementById('executeImageSearchBtn');
+    const errorBox = document.getElementById('imageSearchError');
+    const errorMsg = document.getElementById('imageSearchErrorMessage');
+    errorBox.classList.add('hidden');
+
+    btn.disabled = true;
+    btn.innerHTML = `
+      <span class="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>
+      <span>Analyzing CLIP Features...</span>
+    `;
+
+    const formData = new FormData();
+    formData.append('image', selectedImageFile);
+    if (currentFilterType !== 'all') {
+      formData.append('type', currentFilterType);
+    }
+    if (currentCategory !== 'all') {
+      formData.append('category', currentCategory);
+    }
+    if (currentStatus !== 'all') {
+      formData.append('status', currentStatus);
+    }
+    formData.append('top_k', 30);
+
+    try {
+      const res = await fetch('/api/items/search/image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        const message = data.error?.message || 'Could not complete visual similarity search.';
+        errorMsg.textContent = message;
+        errorBox.classList.remove('hidden');
+        if (typeof showToast === 'function') {
+          showToast(message, 'error');
+        }
+        return;
+      }
+
+      visualSearchResults = data.items || [];
+      isImageSearchActive = true;
+
+      // Update active query preview thumbnail
+      if (document.getElementById('imagePreviewImg').src) {
+        document.getElementById('activeQueryThumb').src = document.getElementById('imagePreviewImg').src;
+      }
+      document.getElementById('visualSearchActiveBanner').classList.remove('hidden');
+      toggleImageSearchPanel(false);
+
+      if (typeof showToast === 'function') {
+        showToast(`CLIP similarity complete: found ${visualSearchResults.length} visual candidate(s).`, 'success');
+      }
+
+      filterAndRender();
+
+      // Scroll smoothly to results
+      const banner = document.getElementById('visualSearchActiveBanner');
+      banner.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    } catch (err) {
+      errorMsg.textContent = 'Server connection error during visual search.';
+      errorBox.classList.remove('hidden');
+      if (typeof showToast === 'function') {
+        showToast('Server connection error during visual search.', 'error');
+      }
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `
+        <span class="material-symbols-outlined text-[18px]">saved_search</span>
+        <span>Search Visual Matches</span>
+      `;
+    }
+  }
+
+  function clearVisualSearch(shouldRender = true) {
+    isImageSearchActive = false;
+    visualSearchResults = [];
+    document.getElementById('visualSearchActiveBanner').classList.add('hidden');
+    clearSelectedImage();
+    if (shouldRender) {
+      filterAndRender();
+    }
+  }
+
+  // ===========================================================================
+  // Standard Item Fetching & Multi-Filter Logic
+  // ===========================================================================
 
   async function fetchItems() {
     const grid = document.getElementById('boardItemsGrid');
@@ -421,6 +724,10 @@
   function setTypeFilter(type) {
     currentFilterType = type;
     updateTypeButtons();
+    const scopeLabel = document.getElementById('searchScopeLabel');
+    if (scopeLabel) {
+      scopeLabel.textContent = type === 'all' ? 'All Items' : (type === 'found' ? 'Found Items' : 'Lost Items');
+    }
     filterAndRender();
   }
 
@@ -470,18 +777,22 @@
     updateTypeButtons();
     document.getElementById('pillCategory').textContent = 'Category: All';
     document.getElementById('pillStatus').textContent = 'Status: All';
+    clearVisualSearch(false);
     filterAndRender();
   }
 
   function filterAndRender() {
-    let filtered = allItems.filter(item => {
+    // If in Visual Search Mode, candidates are the CLIP ranked results
+    let sourceList = isImageSearchActive ? visualSearchResults : allItems;
+
+    let filtered = sourceList.filter(item => {
       // Type filter
       if (currentFilterType !== 'all' && item.type !== currentFilterType) return false;
       // Category filter
       if (currentCategory !== 'all' && item.category !== currentCategory) return false;
       // Status filter
       if (currentStatus !== 'all' && item.status !== currentStatus) return false;
-      // Search query
+      // Search query (keyword fallback / cross-filter)
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
         const matchesTitle = item.title && item.title.toLowerCase().includes(q);
@@ -493,14 +804,18 @@
       return true;
     });
 
-    // Sort
+    // Sort: if in visual search mode and default newest is selected, preserve CLIP similarity rank!
     const sortVal = document.getElementById('sortSelect').value;
-    if (sortVal === 'newest') {
-      filtered.sort((a, b) => b.id - a.id);
-    } else if (sortVal === 'oldest') {
-      filtered.sort((a, b) => a.id - b.id);
-    } else if (sortVal === 'title') {
-      filtered.sort((a, b) => a.title.localeCompare(b.title));
+    if (isImageSearchActive && sortVal === 'newest') {
+      filtered.sort((a, b) => (b.similarity_score || 0) - (a.similarity_score || 0));
+    } else {
+      if (sortVal === 'newest') {
+        filtered.sort((a, b) => b.id - a.id);
+      } else if (sortVal === 'oldest') {
+        filtered.sort((a, b) => a.id - b.id);
+      } else if (sortVal === 'title') {
+        filtered.sort((a, b) => a.title.localeCompare(b.title));
+      }
     }
 
     renderCards(filtered);
@@ -513,15 +828,23 @@
   function renderCards(items) {
     const grid = document.getElementById('boardItemsGrid');
     const countLabel = document.getElementById('resultsCountLabel');
-    countLabel.innerHTML = `Showing <span class="font-semibold text-on-surface">${items.length}</span> items`;
+    const modePrefix = isImageSearchActive ? 'Visual matches: ' : 'Showing ';
+    countLabel.innerHTML = `${modePrefix}<span class="font-semibold text-on-surface">${items.length}</span> items`;
 
     if (items.length === 0) {
       grid.innerHTML = `
         <div class="col-span-full py-16 text-center rounded-2xl bg-surface-container-lowest border border-dashed border-surface-container-high p-8">
           <span class="material-symbols-outlined text-[44px] text-on-surface-variant/60 mb-2">search_off</span>
           <h3 class="font-headline-sm text-headline-sm text-on-surface">No matching items found</h3>
-          <p class="font-body-md text-body-md text-on-surface-variant max-w-sm mx-auto mt-1 mb-4">Try clearing filters or checking back later as new reports are published daily.</p>
-          <button onclick="resetAllFilters()" class="px-4 py-2 rounded-lg bg-secondary-container text-primary font-label-md">Reset Filters</button>
+          <p class="font-body-md text-body-md text-on-surface-variant max-w-sm mx-auto mt-1 mb-4">
+            ${isImageSearchActive
+              ? 'No items with similar photographs matched your active filters. Try clearing category or status filters.'
+              : 'Try clearing filters or checking back later as new reports are published daily.'}
+          </p>
+          <div class="flex items-center justify-center gap-2">
+            ${isImageSearchActive ? '<button onclick="clearVisualSearch()" class="px-4 py-2 rounded-lg bg-primary text-on-primary font-label-md">Exit Visual Search</button>' : ''}
+            <button onclick="resetAllFilters()" class="px-4 py-2 rounded-lg bg-secondary-container text-primary font-label-md">Reset Filters</button>
+          </div>
         </div>
       `;
       return;
@@ -536,13 +859,41 @@
         ? `/uploads/${encodeURIComponent(item.image_filename)}`
         : 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=600&q=80';
 
+      // Visual similarity badge if in visual search mode
+      let similarityBadge = '';
+      let similarityFooter = '';
+      if (isImageSearchActive && item.similarity_percent !== undefined) {
+        const score = item.similarity_percent;
+        const colorClass = score >= 75
+          ? 'bg-tertiary text-on-tertiary'
+          : (score >= 50 ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface');
+
+        similarityBadge = `
+          <div class="absolute top-3 right-3 inline-flex items-center gap-1 px-2.5 py-1 rounded-full ${colorClass} font-label-sm text-[11px] shadow-sm backdrop-blur-md font-bold tracking-tight" title="CLIP cosine similarity score: ${item.similarity_score}. Higher indicates closer visual appearance.">
+            <span class="material-symbols-outlined text-[13px]">auto_awesome</span>
+            <span>${score}% Match</span>
+          </div>
+        `;
+
+        similarityFooter = `
+          <div class="mb-2 px-2.5 py-1 rounded-lg bg-secondary-fixed/40 text-[11px] text-on-secondary-fixed-variant flex items-center justify-between">
+            <span class="font-medium flex items-center gap-1">
+              <span class="material-symbols-outlined text-[13px] text-primary">visibility</span>
+              <span>Visual Similarity: <strong>${score}%</strong></span>
+            </span>
+            <span class="text-[10px] text-on-surface-variant/70">Score: ${item.similarity_score}</span>
+          </div>
+        `;
+      }
+
       return `
-        <article class="bg-surface-container-lowest rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 flex flex-col group border border-surface-container-high">
+        <article class="bg-surface-container-lowest rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 flex flex-col group border border-surface-container-high relative">
           <div class="relative h-44 w-full bg-surface-container-low overflow-hidden">
             <img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" src="${imageSrc}" alt="${escapeHtml(item.title)}">
             <span class="absolute top-3 left-3 inline-flex items-center gap-1 px-2.5 py-1 rounded-full ${badgeClass} font-label-sm text-label-sm shadow-sm backdrop-blur-md font-bold tracking-wider">
               ${badgeText}
             </span>
+            ${similarityBadge}
             <div class="absolute bottom-2.5 left-2.5 px-2.5 py-0.5 rounded-lg bg-surface-container-lowest/90 backdrop-blur-sm text-label-sm font-label-sm text-on-surface shadow-xs">
               ${escapeHtml(item.category)}
             </div>
@@ -568,22 +919,25 @@
               </p>
             </div>
 
-            <div class="pt-2 flex items-center justify-between border-t border-surface-container-high/60">
-              <button onclick="viewItemDetails(${item.id})" class="text-xs font-semibold text-primary hover:underline">
-                View Full Details
-              </button>
-
-              ${isFound ? `
-                <button onclick="openClaimModal(${item.id})" class="px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface hover:bg-tertiary hover:text-on-tertiary font-label-md text-label-md transition-colors flex items-center gap-1 font-semibold">
-                  <span>Claim Item</span>
-                  <span class="material-symbols-outlined text-[16px]">verified</span>
+            <div>
+              ${similarityFooter}
+              <div class="pt-2 flex items-center justify-between border-t border-surface-container-high/60">
+                <button onclick="viewItemDetails(${item.id})" class="text-xs font-semibold text-primary hover:underline">
+                  View Full Details
                 </button>
-              ` : `
-                <a href="/report?type=found&ref=${item.id}" class="px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface hover:bg-primary hover:text-on-primary font-label-md text-label-md transition-colors flex items-center gap-1 font-semibold">
-                  <span>I Found This</span>
-                  <span class="material-symbols-outlined text-[16px]">check_circle</span>
-                </a>
-              `}
+
+                ${isFound ? `
+                  <button onclick="openClaimModal(${item.id})" class="px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface hover:bg-tertiary hover:text-on-tertiary font-label-md text-label-md transition-colors flex items-center gap-1 font-semibold">
+                    <span>Claim Item</span>
+                    <span class="material-symbols-outlined text-[16px]">verified</span>
+                  </button>
+                ` : `
+                  <a href="/report?type=found&ref=${item.id}" class="px-3 py-1.5 rounded-lg bg-surface-container-low text-on-surface hover:bg-primary hover:text-on-primary font-label-md text-label-md transition-colors flex items-center gap-1 font-semibold">
+                    <span>I Found This</span>
+                    <span class="material-symbols-outlined text-[16px]">check_circle</span>
+                  </a>
+                `}
+              </div>
             </div>
           </div>
         </article>

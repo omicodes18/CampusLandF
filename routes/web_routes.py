@@ -36,6 +36,8 @@ def index():
                 "items": "GET /api/items",
                 "report_item": "POST /api/items",
                 "item_detail": "GET /api/items/<id>",
+                "search_by_image": "POST /api/items/search/image",
+                "similarity_info": "GET /api/items/similarity/info",
                 "claims": "POST /api/items/<id>/claims",
                 "my_claims": "GET /api/claims/my",
                 "admin_users": "GET /api/admin/users",

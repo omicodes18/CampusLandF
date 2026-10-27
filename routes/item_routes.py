@@ -5,7 +5,13 @@ Enforces that users can only edit or delete their own reported items.
 """
 
 from flask import Blueprint, current_app, jsonify, request, send_from_directory, session
+from database import get_db
 from routes.auth_routes import login_required
+from services.clip_service import (
+    CLIPModelNotAvailableError,
+    CLIPService,
+    InvalidImageError,
+)
 from services.item_service import (
     ItemNotFoundError,
     ItemValidationError,
@@ -14,6 +20,7 @@ from services.item_service import (
     get_item_by_id,
     get_items,
     report_item,
+    search_items_by_image,
     update_item,
 )
 
@@ -198,3 +205,120 @@ def remove_item(item_id: int):
 def get_uploaded_file(filename: str):
     """Serve uploaded images securely from the uploads directory."""
     return send_from_directory(current_app.config["UPLOAD_FOLDER"], filename)
+
+
+@items_bp.route("/api/items/search/image", methods=["POST"])
+@items_bp.route("/api/items/search-by-image", methods=["POST"])
+def search_by_image():
+    """
+    Search for items with visually similar images using OpenAI CLIP embeddings.
+    Accepts multipart/form-data with:
+    - image: The photograph file to search with (required).
+    - type: Optional filter (all, lost, found).
+    - category: Optional category filter.
+    - location: Optional location keyword.
+    - status: Optional item status (open, claimed, resolved).
+    - top_k: Maximum results to return (default 20, max 50).
+    - threshold: Minimum cosine similarity threshold (default 0.0).
+    """
+    if "image" not in request.files or not request.files["image"].filename:
+        return jsonify({
+            "error": {
+                "code": 400,
+                "name": "Bad Request",
+                "message": "An image file is required in multipart field 'image'.",
+            }
+        }), 400
+
+    query_file = request.files["image"]
+    upload_folder = current_app.config.get("UPLOAD_FOLDER")
+
+    # Extract optional filter parameters from form or query string
+    item_type = request.form.get("type") or request.args.get("type")
+    category = request.form.get("category") or request.args.get("category")
+    location = request.form.get("location") or request.args.get("location")
+    status = request.form.get("status") or request.args.get("status")
+
+    try:
+        top_k = min(50, max(1, int(request.form.get("top_k") or request.args.get("top_k") or 20)))
+    except (ValueError, TypeError):
+        top_k = 20
+
+    try:
+        threshold = float(request.form.get("threshold") or request.args.get("threshold") or 0.0)
+    except (ValueError, TypeError):
+        threshold = 0.0
+
+    try:
+        similar_items = search_items_by_image(
+            query_image_input=query_file,
+            upload_folder=upload_folder,
+            item_type=item_type,
+            category=category,
+            location=location,
+            status=status,
+            top_k=top_k,
+            threshold=threshold,
+        )
+    except (InvalidImageError, ItemValidationError) as exc:
+        return jsonify({
+            "error": {
+                "code": 400,
+                "name": "Bad Request",
+                "message": str(exc),
+            }
+        }), 400
+    except CLIPModelNotAvailableError as exc:
+        return jsonify({
+            "error": {
+                "code": 503,
+                "name": "Service Unavailable",
+                "message": f"CLIP visual similarity service is currently unavailable: {exc}",
+            }
+        }), 503
+    except Exception as exc:
+        current_app.logger.error("Unexpected error during visual similarity search: %s", exc, exc_info=True)
+        return jsonify({
+            "error": {
+                "code": 500,
+                "name": "Internal Server Error",
+                "message": "An error occurred while computing visual similarity.",
+            }
+        }), 500
+
+    clip_info = CLIPService.get_instance().get_info()
+
+    return jsonify({
+        "count": len(similar_items),
+        "model_info": {
+            "model_name": clip_info["model_name"],
+            "model_version": clip_info["model_version"],
+            "device": clip_info["device"],
+            "device_description": clip_info["device_description"],
+        },
+        "items": similar_items,
+    }), 200
+
+
+@items_bp.route("/api/items/similarity/info", methods=["GET"])
+def similarity_service_info():
+    """
+    Retrieve status and diagnostic information about the CLIP similarity engine.
+    """
+    clip_info = CLIPService.get_instance().get_info()
+    db = get_db()
+    total_embedded = db.execute("SELECT COUNT(*) FROM item_embeddings").fetchone()[0]
+    total_items_with_images = db.execute(
+        "SELECT COUNT(*) FROM items WHERE image_filename IS NOT NULL AND TRIM(image_filename) != ''"
+    ).fetchone()[0]
+
+    return jsonify({
+        "status": "ready" if clip_info["is_loaded"] else "idle",
+        "clip": clip_info,
+        "database_stats": {
+            "total_embeddings": total_embedded,
+            "total_items_with_images": total_items_with_images,
+            "coverage_percentage": round((total_embedded / total_items_with_images * 100), 1)
+            if total_items_with_images > 0 else 100.0,
+        },
+    }), 200

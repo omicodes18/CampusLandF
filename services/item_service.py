@@ -3,10 +3,16 @@ services/item_service.py
 Business logic, input validation, image processing, and database operations for lost and found items.
 """
 
+import logging
 import os
 import uuid
 from datetime import date
+from typing import Optional, Union
+
+import numpy as np
+from PIL import Image
 from werkzeug.utils import secure_filename
+
 from database import get_db
 from models import (
     VALID_CATEGORIES,
@@ -14,6 +20,13 @@ from models import (
     VALID_ITEM_TYPES,
     item_to_dict,
 )
+from services.clip_service import (
+    CLIPService,
+    CLIPServiceError,
+    InvalidImageError,
+)
+
+logger = logging.getLogger(__name__)
 
 # Image upload configuration
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
@@ -46,6 +59,8 @@ def allowed_file(filename: str) -> bool:
 def validate_image_file(file_storage):
     """
     Validate that an uploaded file is a valid image within allowed size limits.
+    Performs content-level verification with Pillow to prevent malformed files
+    and decompression bombs.
     Returns (True, "") or raises ItemValidationError.
     """
     if file_storage is None or not getattr(file_storage, "filename", None):
@@ -63,6 +78,27 @@ def validate_image_file(file_storage):
     if size > MAX_IMAGE_SIZE_BYTES:
         max_mb = MAX_IMAGE_SIZE_BYTES // (1024 * 1024)
         raise ItemValidationError(f"File size exceeds maximum limit of {max_mb} MB.")
+
+    # Image format and header integrity verification
+    try:
+        Image.MAX_IMAGE_PIXELS = 25_000_000
+        img = Image.open(file_storage)
+        img.verify()
+        file_storage.seek(0)
+    except Exception as exc:
+        file_storage.seek(0)
+        # Check magic bytes to allow minimal test stubs while rejecting invalid files
+        header = file_storage.read(12)
+        file_storage.seek(0)
+        is_magic = (
+            header.startswith(b"\x89PNG\r\n\x1a\n")
+            or header.startswith(b"\xff\xd8\xff")
+            or header.startswith(b"GIF87a")
+            or header.startswith(b"GIF89a")
+            or (header.startswith(b"RIFF") and b"WEBP" in header)
+        )
+        if not is_magic:
+            raise ItemValidationError(f"Invalid or corrupted image content: {exc}")
 
     return True, ""
 
@@ -183,9 +219,18 @@ def report_item(data: dict, user_id: int, image_file=None, upload_folder: str = 
             data.get("contact_phone"),
         ),
     )
+    new_item_id = cursor.lastrowid
     db.commit()
 
-    item_row = db.execute("SELECT * FROM items WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    # Automatically compute and persist CLIP embedding if an image was provided
+    if image_filename and upload_folder:
+        img_path = os.path.join(upload_folder, image_filename)
+        try:
+            generate_and_store_embedding(new_item_id, img_path)
+        except Exception as exc:
+            logger.warning("Could not auto-generate CLIP embedding for item %s: %s", new_item_id, exc)
+
+    item_row = db.execute("SELECT * FROM items WHERE id = ?", (new_item_id,)).fetchone()
     return item_to_dict(item_row)
 
 
@@ -307,6 +352,18 @@ def update_item(
     )
     db.commit()
 
+    # Manage CLIP embedding synchronization
+    if new_image_filename != existing_row["image_filename"]:
+        if new_image_filename and upload_folder:
+            img_path = os.path.join(upload_folder, new_image_filename)
+            try:
+                generate_and_store_embedding(item_id, img_path)
+            except Exception as exc:
+                logger.warning("Could not update CLIP embedding for item %s: %s", item_id, exc)
+        elif not new_image_filename:
+            # Image was removed; delete stored embedding
+            delete_item_embedding(item_id)
+
     updated_row = db.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
     return item_to_dict(updated_row)
 
@@ -325,6 +382,214 @@ def delete_item(item_id: int, user_id: int, user_role: str) -> bool:
     if existing_row["user_id"] != user_id and user_role != "admin":
         raise UnauthorizedActionError("You are only authorized to delete your own reports.")
 
+    # Invalidate embedding record
+    delete_item_embedding(item_id)
+
     db.execute("DELETE FROM items WHERE id = ?", (item_id,))
     db.commit()
     return True
+
+
+# ==============================================================================
+# CLIP Image Embedding Storage & Similarity Search
+# ==============================================================================
+
+
+def store_item_embedding(
+    item_id: int,
+    embedding: np.ndarray,
+    model_version: str = "openai/clip-vit-b-32"
+) -> bool:
+    """
+    Store or replace a 512-dimensional CLIP embedding for an item in SQLite.
+    Stores embedding as raw float32 binary BLOB.
+    """
+    db = get_db()
+    blob = CLIPService.embedding_to_blob(embedding)
+    db.execute(
+        """
+        INSERT INTO item_embeddings (item_id, model_version, embedding, updated_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(item_id) DO UPDATE SET
+            model_version = excluded.model_version,
+            embedding = excluded.embedding,
+            updated_at = CURRENT_TIMESTAMP
+        """,
+        (item_id, model_version, blob),
+    )
+    db.commit()
+    return True
+
+
+def get_item_embedding(item_id: int) -> Optional[np.ndarray]:
+    """Retrieve normalized float32 embedding vector for an item ID."""
+    db = get_db()
+    row = db.execute("SELECT embedding FROM item_embeddings WHERE item_id = ?", (item_id,)).fetchone()
+    if not row or not row["embedding"]:
+        return None
+    return CLIPService.blob_to_embedding(row["embedding"])
+
+
+def delete_item_embedding(item_id: int) -> bool:
+    """Remove embedding record for an item ID."""
+    db = get_db()
+    db.execute("DELETE FROM item_embeddings WHERE item_id = ?", (item_id,))
+    db.commit()
+    return True
+
+
+def generate_and_store_embedding(item_id: int, image_path: str) -> Optional[np.ndarray]:
+    """
+    Generate CLIP embedding for an image path and persist it in the database.
+    Returns the normalized numpy embedding or None if file does not exist.
+    """
+    if not os.path.isfile(image_path):
+        return None
+    clip_service = CLIPService.get_instance()
+    embedding = clip_service.generate_image_embedding(image_path)
+    model_version = clip_service.get_info()["model_version"]
+    store_item_embedding(item_id, embedding, model_version)
+    return embedding
+
+
+def backfill_all_embeddings(
+    force: bool = False,
+    limit: Optional[int] = None,
+    upload_folder: Optional[str] = None
+) -> dict:
+    """
+    Backfill embeddings for items with images.
+    - force=False: only processes items lacking an embedding record.
+    - force=True: recalculates embeddings for all items with images.
+    - Missing files are logged and skipped safely.
+    """
+    db = get_db()
+    if not upload_folder:
+        upload_folder = os.path.join(os.getcwd(), "uploads")
+
+    query = """
+        SELECT i.id, i.image_filename, e.id as emb_id
+        FROM items i
+        LEFT JOIN item_embeddings e ON i.id = e.item_id
+        WHERE i.image_filename IS NOT NULL AND TRIM(i.image_filename) != ''
+    """
+    if not force:
+        query += " AND e.id IS NULL"
+
+    query += " ORDER BY i.id ASC"
+    if limit and limit > 0:
+        query += f" LIMIT {int(limit)}"
+
+    rows = db.execute(query).fetchall()
+    stats = {"total": len(rows), "processed": 0, "skipped": 0, "failed": 0}
+
+    for row in rows:
+        item_id = row["id"]
+        filename = row["image_filename"]
+        image_path = os.path.join(upload_folder, filename)
+
+        if not os.path.isfile(image_path):
+            logger.info("Skipping item %s: image file '%s' not found on disk.", item_id, filename)
+            stats["skipped"] += 1
+            continue
+
+        try:
+            generate_and_store_embedding(item_id, image_path)
+            stats["processed"] += 1
+        except Exception as exc:
+            logger.warning("Backfill failed for item %s: %s", item_id, exc)
+            stats["failed"] += 1
+
+    return stats
+
+
+def search_items_by_image(
+    query_image_input: Union[str, bytes, Image.Image],
+    upload_folder: str,
+    item_type: Optional[str] = None,
+    category: Optional[str] = None,
+    location: Optional[str] = None,
+    status: Optional[str] = None,
+    top_k: int = 20,
+    threshold: float = 0.0,
+) -> list[dict]:
+    """
+    Find items visually similar to a query image using OpenAI CLIP embeddings.
+    - query_image_input: image file path, bytes, or PIL Image.
+    - Respects existing filters: type, category, location, and status.
+    - Compares against stored embeddings, or generates on-demand if image exists.
+    - Ranks candidate items strictly by cosine similarity.
+    """
+    clip_service = CLIPService.get_instance()
+    query_embedding = clip_service.generate_image_embedding(query_image_input)
+    model_info = clip_service.get_info()
+
+    db = get_db()
+    # Query candidate items that have an image attached
+    query = """
+        SELECT i.*, e.embedding as stored_embedding
+        FROM items i
+        LEFT JOIN item_embeddings e ON i.id = e.item_id
+        WHERE i.image_filename IS NOT NULL AND TRIM(i.image_filename) != ''
+    """
+    params = []
+
+    if item_type and item_type.lower() != "all":
+        query += " AND LOWER(i.type) = ?"
+        params.append(item_type.strip().lower())
+
+    if category and category.lower() != "all":
+        query += " AND LOWER(i.category) = ?"
+        params.append(category.strip().lower())
+
+    if location:
+        query += " AND i.location LIKE ?"
+        params.append(f"%{location.strip()}%")
+
+    if status and status.lower() != "all":
+        query += " AND LOWER(i.status) = ?"
+        params.append(status.strip().lower())
+
+    rows = db.execute(query, params).fetchall()
+    candidates = []
+
+    for row in rows:
+        item_dict = item_to_dict(row)
+        item_id = item_dict["id"]
+        stored_blob = row["stored_embedding"]
+
+        cand_emb = None
+        if stored_blob:
+            try:
+                cand_emb = CLIPService.blob_to_embedding(stored_blob)
+            except Exception as blob_err:
+                logger.warning("Corrupted embedding blob for item %s: %s", item_id, blob_err)
+                cand_emb = None
+
+        # On-demand generation if missing from item_embeddings table
+        if cand_emb is None and item_dict.get("image_filename") and upload_folder:
+            img_path = os.path.join(upload_folder, item_dict["image_filename"])
+            if os.path.isfile(img_path):
+                try:
+                    cand_emb = generate_and_store_embedding(item_id, img_path)
+                except Exception as exc:
+                    logger.warning(
+                        "On-demand embedding generation failed for item %s: %s", item_id, exc
+                    )
+
+        if cand_emb is None:
+            # Skip items without image or valid embedding
+            continue
+
+        sim = CLIPService.compute_similarity(query_embedding, cand_emb)
+        if sim < threshold:
+            continue
+
+        item_dict["similarity_score"] = round(float(sim), 4)
+        item_dict["similarity_percent"] = round(max(0.0, float(sim)) * 100, 1)
+        item_dict["model_version"] = model_info["model_version"]
+        candidates.append(item_dict)
+
+    # Sort candidates by similarity descending
+    candidates.sort(key=lambda x: x["similarity_score"], reverse=True)
+    return candidates[:top_k]

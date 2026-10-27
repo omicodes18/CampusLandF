@@ -48,6 +48,7 @@ def init_db(reset: bool = False):
     db = get_db()
     if reset:
         db.executescript("""
+            DROP TABLE IF EXISTS item_embeddings;
             DROP TABLE IF EXISTS notifications;
             DROP TABLE IF EXISTS claims;
             DROP TABLE IF EXISTS items;
@@ -75,6 +76,22 @@ def init_db_command(reset):
     click.echo("Successfully initialized the SQLite database.")
 
 
+@click.command("backfill-embeddings")
+@click.option("--force", is_flag=True, default=False, help="Force recomputation of existing embeddings.")
+@click.option("--limit", type=int, default=None, help="Maximum number of items to process.")
+@with_appcontext
+def backfill_embeddings_command(force, limit):
+    """CLI command to generate OpenAI CLIP image embeddings for items with images."""
+    from services.item_service import backfill_all_embeddings
+    click.echo(f"Starting CLIP image embedding backfill (force={force}, limit={limit})...")
+    upload_folder = current_app.config.get("UPLOAD_FOLDER")
+    stats = backfill_all_embeddings(force=force, limit=limit, upload_folder=upload_folder)
+    click.echo(
+        f"Backfill complete: total={stats['total']}, processed={stats['processed']}, "
+        f"skipped={stats['skipped']}, failed={stats['failed']}"
+    )
+
+
 def check_db_connection():
     """
     Test database connectivity for health checks.
@@ -95,3 +112,4 @@ def init_app(app):
     """Register database teardown and CLI commands with the Flask application."""
     app.teardown_appcontext(close_db)
     app.cli.add_command(init_db_command)
+    app.cli.add_command(backfill_embeddings_command)
